@@ -1,0 +1,34 @@
+@page "/access-denied"
+
+<PageTitle>Zugriff verweigert</PageTitle>
+
+<div class="container-xxl d-flex justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="card shadow text-center" style="width: 100%; max-width: 500px;">
+        <div class="card-header bg-danger text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Zugriff verweigert
+            </h4>
+        </div>
+        <div class="card-body">
+            <div class="mb-4">
+                <i class="fas fa-lock" style="font-size: 4rem; color: #dc3545;"></i>
+            </div>
+            <h5 class="card-title">Keine Berechtigung</h5>
+            <p class="card-text text-muted">
+                Sie haben keine Berechtigung, auf diese Seite zuzugreifen.
+                Bitte melden Sie sich mit einem Administrator-Konto an.
+            </p>
+        </div>
+        <div class="card-footer">
+            <a href="/login" class="btn btn-primary me-2">
+                <i class="fas fa-sign-in-alt me-1"></i>
+                Anmelden
+            </a>
+            <a href="/" class="btn btn-secondary">
+                <i class="fas fa-home me-1"></i>
+                Zur Startseite
+            </a>
+        </div>
+    </div>
+</div>

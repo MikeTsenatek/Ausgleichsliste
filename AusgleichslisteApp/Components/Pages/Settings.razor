@@ -1,0 +1,373 @@
+@page "/einstellungen"
+@using AusgleichslisteApp.Models
+@using AusgleichslisteApp.Services
+@using AusgleichslisteApp.Components.Shared
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@* @attribute [Authorize(Roles = "Admin")] *@
+@inject ISettingsService SettingsService
+@inject ISettingsDatabaseService SettingsDatabaseService
+@inject ILogoService LogoService
+@inject IDataService DataService
+@inject ILogger<Settings> Logger
+@rendermode InteractiveServer
+
+<PageTitle>Einstellungen - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
+
+<div class="container-xxl">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                Einstellungen
+                <small class="text-muted">Anpassung der Anwendung</small>
+            </h1>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Branding Settings -->
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Branding & Erscheinungsbild</h5>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="brandingSettings" OnValidSubmit="SaveBrandingSettings">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Anwendungsname</label>
+                                    <InputText @bind-Value="brandingSettings.ApplicationName" 
+                                             class="form-control" 
+                                             placeholder="z.B. Meine Ausgleichsliste" />
+                                    <small class="text-muted">Name der Anwendung in der Navigation</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Organisation</label>
+                                    <InputText @bind-Value="brandingSettings.OrganizationName" 
+                                             class="form-control" 
+                                             placeholder="z.B. Meine Firma GmbH" />
+                                    <small class="text-muted">Optional: Name Ihrer Organisation</small>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Organisation URL</label>
+                            <InputText @bind-Value="brandingSettings.OrganizationUrl" 
+                                     class="form-control" 
+                                     placeholder="https://example.com" />
+                            <small class="text-muted">Optional: Link zu Ihrer Website</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Logo hochladen</label>
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <InputFile class="form-control" 
+                                             accept="image/*" 
+                                             OnChange="HandleLogoUpload"
+                                             disabled="@isUploading" />
+                                    <small class="text-muted">
+                                        Unterstützte Formate: JPG, PNG, GIF, WebP, SVG<br>
+                                        Max 2MB. Empfohlene Höhe: 50px
+                                    </small>
+                                </div>
+                                <div class="col-md-4">
+                                    @if (currentLogo != null)
+                                    {
+                                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                                @onclick="DeleteCurrentLogo" 
+                                                disabled="@isUploading">
+                                            <i class="fas fa-trash"></i> Logo löschen
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                            
+                            @if (isUploading)
+                            {
+                                <div class="mt-2">
+                                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                                        <span class="visually-hidden">Wird hochgeladen...</span>
+                                    </div>
+                                    <small class="text-muted">Logo wird gespeichert...</small>
+                                </div>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(uploadMessage))
+                            {
+                                <div class="alert @(uploadSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show mt-2" role="alert">
+                                    @uploadMessage
+                                    <button type="button" class="btn-close" @onclick="() => uploadMessage = string.Empty"></button>
+                                </div>
+                            }
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <InputCheckbox @bind-Value="brandingSettings.ShowLogo" 
+                                                     class="form-check-input" />
+                                        <label class="form-check-label">
+                                            Logo anzeigen
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Logo Höhe (px)</label>
+                                    <InputNumber @bind-Value="brandingSettings.LogoMaxHeight" 
+                                               class="form-control" 
+                                               min="20" max="200" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Primärfarbe</label>
+                                    <div class="input-group">
+                                        <input type="color" 
+                                               @bind="brandingSettings.PrimaryColor" 
+                                               class="form-control form-control-color" 
+                                               title="Primärfarbe wählen" />
+                                        <InputText @bind-Value="brandingSettings.PrimaryColor" 
+                                                 class="form-control" 
+                                                 placeholder="#6c757d" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Sekundärfarbe</label>
+                                    <div class="input-group">
+                                        <input type="color" 
+                                               @bind="brandingSettings.SecondaryColor" 
+                                               class="form-control form-control-color" 
+                                               title="Sekundärfarbe wählen" />
+                                        <InputText @bind-Value="brandingSettings.SecondaryColor" 
+                                                 class="form-control" 
+                                                 placeholder="#495057" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        @if (!string.IsNullOrEmpty(validationMessage))
+                        {
+                            <div class="alert alert-warning">@validationMessage</div>
+                        }
+                        
+                        @if (!string.IsNullOrEmpty(successMessage))
+                        {
+                            <div class="alert alert-success">@successMessage</div>
+                        }
+                        
+                        <button type="submit" class="btn btn-primary" disabled="@isProcessing">
+                            @if (isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Branding speichern
+                        </button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Preview -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Vorschau</h5>
+                </div>
+                <div class="card-body">
+                    <div class="border rounded p-3 mb-3" style="background-color: #f8f9fa;">
+                        <h6>Navigation (Vorschau)</h6>
+                        <div class="d-flex align-items-center">
+                            @if (brandingSettings.ShowLogo)
+                            {
+                                @if (currentLogo != null)
+                                {
+                                    <img src="@LogoService.ConvertToBase64DataUrl(currentLogo)" 
+                                         alt="Logo Preview"
+                                         class="me-2"
+                                         style="max-height: @(brandingSettings.LogoMaxHeight)px;" />
+                                }
+                            }
+                            <span class="fw-bold">@brandingSettings.ApplicationName</span>
+                        </div>
+                    </div>
+                    
+                    <div class="border rounded p-3 mb-3" style="background-color: @brandingSettings.PrimaryColor; color: white;">
+                        <small>Primärfarbe Beispiel</small>
+                    </div>
+                    
+                    <div class="border rounded p-3" style="background-color: @brandingSettings.SecondaryColor; color: white;">
+                        <small>Sekundärfarbe Beispiel</small>
+                    </div>
+                    
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private BrandingSettings brandingSettings = new();
+    private bool isProcessing = false;
+    private string validationMessage = string.Empty;
+    private string successMessage = string.Empty;
+    
+    // Logo upload variables
+    private bool isUploading = false;
+    private string uploadMessage = string.Empty;
+    private bool uploadSuccess = false;
+    private Logo? currentLogo = null;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        // Kopiere aktuelle Einstellungen aus der Datenbank
+        var current = await SettingsService.GetSettingsAsync();
+        brandingSettings = new BrandingSettings
+        {
+            ApplicationName = current.Branding.ApplicationName,
+            OrganizationUrl = current.Branding.OrganizationUrl,
+            OrganizationName = current.Branding.OrganizationName,
+            PrimaryColor = current.Branding.PrimaryColor,
+            SecondaryColor = current.Branding.SecondaryColor,
+            ShowLogo = current.Branding.ShowLogo,
+            LogoMaxHeight = current.Branding.LogoMaxHeight
+        };
+        
+        // Lade aktuelles Logo aus der Datenbank
+        currentLogo = await LogoService.GetCurrentLogoAsync();
+    }
+    
+    private async Task SaveBrandingSettings()
+    {
+        validationMessage = string.Empty;
+        successMessage = string.Empty;
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Validierung
+            if (string.IsNullOrWhiteSpace(brandingSettings.ApplicationName))
+            {
+                validationMessage = "Anwendungsname ist erforderlich.";
+                return;
+            }
+            
+
+            if (!string.IsNullOrEmpty(brandingSettings.OrganizationUrl) &&
+                !Uri.TryCreate(brandingSettings.OrganizationUrl, UriKind.Absolute, out _))
+            {
+                validationMessage = "Organisation URL ist ungültig.";
+                return;
+            }
+            
+            // Hier werden die Einstellungen jetzt in der Datenbank gespeichert
+            await SettingsDatabaseService.SaveBrandingSettingsAsync(brandingSettings);
+            successMessage = "Einstellungen wurden erfolgreich gespeichert!";
+            
+            // Settings-Cache leeren
+            await SettingsService.ReloadSettingsAsync();
+        }
+        catch (Exception ex)
+        {
+            validationMessage = $"Fehler beim Speichern: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task HandleLogoUpload(InputFileChangeEventArgs e)
+    {
+        uploadMessage = string.Empty;
+        uploadSuccess = false;
+        isUploading = true;
+        StateHasChanged();
+        
+        try
+        {
+            var file = e.File;
+            
+            // Validierung
+            if (file == null)
+            {
+                uploadMessage = "Keine Datei ausgewählt.";
+                return;
+            }
+            
+            if (file.Size > 2 * 1024 * 1024) // 2MB
+            {
+                uploadMessage = "Datei ist zu groß. Maximum: 2MB.";
+                return;
+            }
+            
+            if (!file.ContentType.StartsWith("image/"))
+            {
+                uploadMessage = "Nur Bilddateien sind erlaubt.";
+                return;
+            }
+            
+            // Datei lesen
+            using var stream = file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            var fileBytes = memoryStream.ToArray();
+            
+            // Logo speichern
+            currentLogo = await LogoService.SaveLogoAsync(file.Name, file.ContentType, fileBytes);
+            
+            // Erfolg
+            uploadMessage = $"Logo '{file.Name}' wurde erfolgreich hochgeladen und gespeichert.";
+            uploadSuccess = true;
+            
+            Logger.LogInformation("Logo erfolgreich hochgeladen: {FileName}", file.Name);
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Fehler beim Hochladen: {ex.Message}";
+            uploadSuccess = false;
+            Logger.LogError(ex, "Fehler beim Logo-Upload: {FileName}", e.File?.Name);
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task DeleteCurrentLogo()
+    {
+        try
+        {
+            await LogoService.DeleteCurrentLogoAsync();
+            currentLogo = null;
+            uploadMessage = "Logo wurde erfolgreich gelöscht.";
+            uploadSuccess = true;
+            Logger.LogInformation("Logo erfolgreich gelöscht");
+        }
+        catch (Exception ex)
+        {
+            uploadMessage = $"Fehler beim Löschen: {ex.Message}";
+            uploadSuccess = false;
+            Logger.LogError(ex, "Fehler beim Löschen des Logos");
+        }
+        
+        StateHasChanged();
+    }
+}

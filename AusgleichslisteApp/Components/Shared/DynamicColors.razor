@@ -1,0 +1,84 @@
+@using AusgleichslisteApp.Services
+@inject ISettingsCacheService SettingsCache
+
+<style>
+    :root {
+        --primary-color: @SettingsCache.GetSettings().Branding.PrimaryColor;
+        --secondary-color: @SettingsCache.GetSettings().Branding.SecondaryColor;
+        --primary-rgb: @GetRgbValues(SettingsCache.GetSettings().Branding.PrimaryColor);
+        --secondary-rgb: @GetRgbValues(SettingsCache.GetSettings().Branding.SecondaryColor);
+    }
+    
+    /* === GRUNDLEGENDE OVERRIDES === */
+    .btn-primary { 
+        background-color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important; 
+    }
+    .btn-primary:hover { 
+        background-color: rgba(var(--primary-rgb), 0.8) !important;
+        border-color: rgba(var(--primary-rgb), 0.8) !important; 
+    }
+    .bg-primary { 
+        background-color: var(--primary-color) !important; 
+    }
+    .text-primary { 
+        color: var(--primary-color) !important; 
+    }
+    
+    /* === HEADER & NAVIGATION === */
+    .site-header {
+        background-color: var(--primary-color) !important;
+    }
+    .site-header .nav-link {
+        color: rgba(255, 255, 255, 0.9) !important;
+    }
+    .site-header .nav-link:hover,
+    .site-header .nav-link.active {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+    }
+    .site-header button,
+    .site-header .btn {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
+        color: white !important;
+    }
+    .site-header button:hover,
+    .site-header .btn:hover {
+        background-color: rgba(255, 255, 255, 0.9) !important;
+        color: var(--primary-color) !important;
+    }
+    
+    /* === APP TITLE === */
+    .app-title {
+        color: white !important;
+        font-weight: 600 !important;
+        font-size: 1.25rem !important;
+    }
+    .app-title:hover {
+        color: rgba(255, 255, 255, 0.8) !important;
+        text-decoration: none !important;
+    }
+</style>
+
+@code {
+    private string GetRgbValues(string hexColor)
+    {
+        if (string.IsNullOrEmpty(hexColor) || !hexColor.StartsWith("#") || hexColor.Length != 7)
+        {
+            return "108, 117, 125"; // Default gray
+        }
+        
+        try
+        {
+            var r = Convert.ToInt32(hexColor.Substring(1, 2), 16);
+            var g = Convert.ToInt32(hexColor.Substring(3, 2), 16);
+            var b = Convert.ToInt32(hexColor.Substring(5, 2), 16);
+            return $"{r}, {g}, {b}";
+        }
+        catch
+        {
+            return "108, 117, 125"; // Default gray
+        }
+    }
+}

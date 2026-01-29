@@ -1,0 +1,75 @@
+@using AusgleichslisteApp.Models
+@using AusgleichslisteApp.Services
+@inject ISettingsCacheService SettingsCache
+@inject ILogoService LogoService
+
+@if (ShowLogo && !string.IsNullOrEmpty(_logoDataUrl))
+{
+    @if (!string.IsNullOrEmpty(SettingsCache.GetSettings().Branding.OrganizationUrl))
+    {
+        <a href="@SettingsCache.GetSettings().Branding.OrganizationUrl" target="_blank">
+            <img src="@_logoDataUrl" alt="@SettingsCache.GetSettings().Branding.ApplicationName Logo" class="@CssClass"
+                style="max-height: @(SettingsCache.GetSettings().Branding.LogoMaxHeight)px; @Style" />
+        </a>
+    }
+    else
+    {
+        <img src="@_logoDataUrl" alt="@SettingsCache.GetSettings().Branding.ApplicationName Logo" class="@CssClass"
+            style="max-height: @(SettingsCache.GetSettings().Branding.LogoMaxHeight)px; @Style" />
+    }
+}
+
+@if (ShowText)
+{
+    <a href="" class="app-title text-decoration-none">
+        <span class="@TextCssClass" style="@TextStyle">
+            @GetDisplayText()
+        </span>
+    </a>
+
+}
+
+@code {
+    [Parameter] public bool ShowLogo { get; set; } = true;
+    [Parameter] public bool ShowText { get; set; } = true;
+    [Parameter] public string CssClass { get; set; } = "me-2";
+    [Parameter] public string TextCssClass { get; set; } = "";
+    [Parameter] public string Style { get; set; } = "";
+    [Parameter] public string TextStyle { get; set; } = "";
+    [Parameter] public string? CustomText { get; set; }
+
+    private string? _logoDataUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ShowLogo)
+        {
+            try
+            {
+                // Versuche Logo aus Datenbank zu laden
+                var logo = await LogoService.GetCurrentLogoAsync();
+                if (logo != null)
+                {
+                    _logoDataUrl = LogoService.ConvertToBase64DataUrl(logo);
+                }
+            }
+            catch
+            {
+                // Bei Fehlern kein Logo anzeigen
+                _logoDataUrl = null;
+            }
+        }
+    }
+
+    private string GetDisplayText()
+    {
+        if (!string.IsNullOrEmpty(CustomText))
+            return CustomText;
+
+        var settings = SettingsCache.GetSettings();
+        if (!string.IsNullOrEmpty(settings.Branding.OrganizationName))
+            return settings.Branding.OrganizationName;
+
+        return settings.Branding.ApplicationName;
+    }
+}

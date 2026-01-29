@@ -1,0 +1,19 @@
+﻿@using AusgleichslisteApp.Components.Shared
+@inherits LayoutComponentBase
+
+<div class="app-layout">
+    <DynamicColors />
+    <!-- Header Navigation -->
+    <NavMenu />
+    
+    <!-- Main Content -->
+    <main class="main-container">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Ein unbehandelter Fehler ist aufgetreten.
+    <a href="." class="reload">Neu laden</a>
+    <span class="dismiss">×</span>
+</div>

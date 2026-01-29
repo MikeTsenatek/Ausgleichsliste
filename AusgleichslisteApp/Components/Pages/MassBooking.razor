@@ -1,0 +1,444 @@
+@page "/sammelbuchung"
+@using AusgleichslisteApp.Models
+@using AusgleichslisteApp.Services
+@inject IDataService DataService
+@inject ISettingsService SettingsService
+@rendermode InteractiveServer
+
+<PageTitle>Sammel-Buchung - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
+
+<div class="container-xxl">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                Sammel-Buchung
+                <small class="text-muted">Eine Person kauft für mehrere</small>
+            </h1>
+        </div>
+    </div>
+    
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Wird geladen...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Grunddaten -->
+            <div class="col-lg-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Grunddaten</h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="massBooking" OnValidSubmit="ProcessMassBooking">
+                            <div class="mb-3">
+                                <label class="form-label">Datum</label>
+                                <InputDate @bind-Value="massBooking.Date" class="form-control" />
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Artikel/Beschreibung</label>
+                                <InputText @bind-Value="massBooking.Article" class="form-control" placeholder="z.B. Gruppeneinkauf" />
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Zahler (wer hat bezahlt)</label>
+                                <InputSelect @bind-Value="massBooking.PayerId" class="form-select" @onchange="OnPayerChanged">
+                                    <option value="">-- Auswählen --</option>
+                                    @if (users != null)
+                                    {
+                                        @foreach (var user in users.Where(u => u.IsActive).OrderBy(u => u.Name))
+                                        {
+                                            <option value="@user.Id">@user.Name</option>
+                                        }
+                                    }
+                                </InputSelect>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Erwarteter Gesamtbetrag (€)</label>
+                                <InputNumber @bind-Value="massBooking.ExpectedTotal" class="form-control" step="0.01" min="0" />
+                                <small class="text-muted">Optional - zur Kontrolle</small>
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(validationMessage))
+                            {
+                                <div class="alert alert-warning">@validationMessage</div>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(successMessage))
+                            {
+                                <div class="alert alert-success">@successMessage</div>
+                            }
+                            
+                            @if (!string.IsNullOrEmpty(errorMessage))
+                            {
+                                <div class="alert alert-danger">@errorMessage</div>
+                            }
+                            
+                            <button type="submit" class="btn btn-primary w-100" disabled="@(isProcessing || !CanSubmit())">
+                                @if (isProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Sammel-Buchung erstellen
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Beträge pro Person -->
+            <div class="col-lg-8 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary d-flex justify-content-between align-items-center text-white">
+                        <h5 class="mb-0">Beträge pro Person</h5>
+                        <div class="d-flex gap-2">
+                            @if (massBooking.ExpectedTotal > 0)
+                            {
+                                <span class="badge" style="@GetTotalBadgeStyle()">
+                                    @GetTotalDifferenceText()
+                                </span>
+                            }
+                            <span class="badge bg-light text-dark">
+                                Summe: @CalculatedTotal.ToString("F2") €
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (!string.IsNullOrEmpty(massBooking.PayerId) && users != null)
+                        {
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm me-2" @onclick="SelectAllUsers">
+                                        Alle auswählen
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm me-2" @onclick="ClearAllUsers">
+                                        Auswahl löschen
+                                    </button>
+                                    @if (massBooking.ExpectedTotal > 0 && massBooking.PersonAmounts.Where(p => p.IsSelected).Count() > 0)
+                                    {
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="DistributeEvenly">
+                                            Gleichmäßig aufteilen
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width: 50px;">Aktiv</th>
+                                            <th>Person</th>
+                                            <th style="width: 150px;">Betrag (€)</th>
+                                            <th style="width: 200px;">Kommentar</th>
+                                            <th style="width: 100px;">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var personAmount in massBooking.PersonAmounts.OrderBy(p => p.UserName))
+                                        {
+                                            <tr class="@(personAmount.UserId == massBooking.PayerId ? "table-warning" : "")">
+                                                <td>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" 
+                                                               @bind="personAmount.IsSelected" 
+                                                               @bind:after="StateHasChanged" />
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <strong>@personAmount.UserName</strong>
+                                                    @if (personAmount.UserId == massBooking.PayerId)
+                                                    {
+                                                        <small class="text-muted">(Zahler)</small>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (personAmount.IsSelected)
+                                                    {
+                                                        <input type="number" class="form-control form-control-sm" 
+                                                               @bind="personAmount.Amount" 
+                                                               @bind:after="StateHasChanged"
+                                                               step="0.01" min="0" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (personAmount.IsSelected)
+                                                    {
+                                                        <input type="text" class="form-control form-control-sm" 
+                                                               @bind="personAmount.Comment" 
+                                                               placeholder="z.B. 1 LKW"
+                                                               maxlength="50" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">-</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (personAmount.IsSelected && personAmount.Amount > 0)
+                                                    {
+                                                        <span class="badge bg-success">✓</span>
+                                                    }
+                                                    else if (personAmount.IsSelected)
+                                                    {
+                                                        <span class="badge bg-warning">!</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-light text-muted">-</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            @if (massBooking.PersonAmounts.Any(p => p.IsSelected))
+                            {
+                                <div class="mt-3 p-3 bg-light rounded">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong>Ausgewählte Personen:</strong> @massBooking.PersonAmounts.Where(p => p.IsSelected).Count()
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong>Berechnete Summe:</strong> @CalculatedTotal.ToString("F2") €
+                                        </div>
+                                    </div>
+                                    @if (massBooking.ExpectedTotal > 0)
+                                    {
+                                        <div class="row mt-2">
+                                            <div class="col-md-6">
+                                                <strong>Erwarteter Betrag:</strong> @massBooking.ExpectedTotal.ToString("F2") €
+                                            </div>
+                                            <div class="col-md-6">
+                                                <strong>Differenz:</strong> 
+                                                <span class="@(GetTotalDifference() == 0 ? "text-success" : "text-warning")">
+                                                    @GetTotalDifference().ToString("F2") €
+                                                </span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted py-4">
+                                <p>Bitte zuerst einen Zahler auswählen.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<User>? users;
+    private DetailedMassBookingRequest massBooking = new();
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private string validationMessage = string.Empty;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    
+    private decimal CalculatedTotal => massBooking.PersonAmounts.Where(p => p.IsSelected).Sum(p => p.Amount);
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+    
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            users = await DataService.GetUsersAsync();
+            InitializePersonAmounts();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Laden der Daten: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private void InitializePersonAmounts()
+    {
+        if (users == null) return;
+        
+        massBooking.PersonAmounts.Clear();
+        foreach (var user in users.Where(u => u.IsActive).OrderBy(u => u.Name))
+        {
+            massBooking.PersonAmounts.Add(new PersonAmount
+            {
+                UserId = user.Id,
+                UserName = user.Name,
+                Amount = 0,
+                IsSelected = false
+            });
+        }
+    }
+    
+    private void OnPayerChanged(ChangeEventArgs e)
+    {
+        massBooking.PayerId = e.Value?.ToString() ?? string.Empty;
+        StateHasChanged();
+    }
+    
+    private void SelectAllUsers()
+    {
+        foreach (var person in massBooking.PersonAmounts)
+        {
+            person.IsSelected = true;
+        }
+        StateHasChanged();
+    }
+    
+    private void ClearAllUsers()
+    {
+        foreach (var person in massBooking.PersonAmounts)
+        {
+            person.IsSelected = false;
+            person.Amount = 0;
+            person.Comment = string.Empty;
+        }
+        StateHasChanged();
+    }
+    
+    private void DistributeEvenly()
+    {
+        var selectedPersons = massBooking.PersonAmounts.Where(p => p.IsSelected).ToList();
+        if (selectedPersons.Count == 0 || massBooking.ExpectedTotal <= 0) return;
+        
+        var amountPerPerson = massBooking.ExpectedTotal / selectedPersons.Count;
+        foreach (var person in selectedPersons)
+        {
+            person.Amount = Math.Round(amountPerPerson, 2);
+        }
+        StateHasChanged();
+    }
+    
+    private bool CanSubmit()
+    {
+        return !string.IsNullOrEmpty(massBooking.Article) &&
+               !string.IsNullOrEmpty(massBooking.PayerId) &&
+               massBooking.PersonAmounts.Any(p => p.IsSelected && p.Amount > 0);
+    }
+    
+    private decimal GetTotalDifference()
+    {
+        return CalculatedTotal - massBooking.ExpectedTotal;
+    }
+    
+    private string GetTotalDifferenceText()
+    {
+        var diff = GetTotalDifference();
+        if (diff == 0) return "✓ Exakt";
+        if (diff > 0) return $"+{diff:F2} € zu viel";
+        return $"{diff:F2} € fehlen";
+    }
+    
+    private string GetTotalBadgeStyle()
+    {
+        var diff = GetTotalDifference();
+        if (diff == 0) return "background-color: #28a745; color: white;";
+        return "background-color: #ffc107; color: black;";
+    }
+    
+    private async Task ProcessMassBooking()
+    {
+        validationMessage = string.Empty;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        
+        if (!CanSubmit())
+        {
+            validationMessage = "Bitte alle erforderlichen Felder ausfüllen und mindestens eine Person mit Betrag > 0 auswählen.";
+            return;
+        }
+        
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            var bookingsToAdd = new List<Booking>();
+            var selectedPersons = massBooking.PersonAmounts.Where(p => p.IsSelected && p.Amount > 0).ToList();
+            
+            foreach (var person in selectedPersons)
+            {
+                // Überspringe den Zahler selbst
+                if (person.UserId == massBooking.PayerId)
+                    continue;
+                    
+                // Kombiniere Article mit individuellem Kommentar falls vorhanden
+                var finalArticle = massBooking.Article;
+                if (!string.IsNullOrWhiteSpace(person.Comment))
+                {
+                    finalArticle = $"{massBooking.Article} ({person.Comment.Trim()})";
+                }
+                
+                var booking = new Booking(
+                    payerId: massBooking.PayerId,
+                    beneficiaryId: person.UserId,
+                    amount: person.Amount,
+                    article: finalArticle,
+                    date: massBooking.Date
+                );
+                
+                bookingsToAdd.Add(booking);
+            }
+            
+            if (bookingsToAdd.Any())
+            {
+                var originalArticle = massBooking.Article;
+                
+                // Füge alle Buchungen hinzu
+                foreach (var booking in bookingsToAdd)
+                {
+                    await DataService.AddBookingAsync(booking);
+                }
+                
+                // Reset form
+                massBooking = new DetailedMassBookingRequest { Date = DateTime.Now };
+                InitializePersonAmounts();
+                
+                successMessage = $"Sammel-Buchung '{originalArticle}' wurde erfolgreich erstellt. {bookingsToAdd.Count} Einzelbuchungen hinzugefügt.";
+            }
+            else
+            {
+                validationMessage = "Keine Buchungen erstellt. Der Zahler kann nicht für sich selbst bezahlen oder es wurden keine gültigen Beträge eingegeben.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Erstellen der Sammel-Buchung: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+}

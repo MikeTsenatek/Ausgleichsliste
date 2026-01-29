@@ -1,0 +1,65 @@
+@page "/login"
+@inject NavigationManager Navigation
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Anmelden</PageTitle>
+
+<div class="container-xxl d-flex justify-content-center align-items-center" style="min-height: 100vh;">
+    <div class="card shadow" style="width: 100%; max-width: 400px;">
+        <div class="card-header text-center bg-primary text-white">
+            <h4 class="mb-0">
+                <i class="fas fa-sign-in-alt me-2"></i>
+                Anmelden
+            </h4>
+        </div>
+        <div class="card-body">
+            <form method="post" action="/api/login">
+                <div class="mb-3">
+                    <label class="form-label">
+                        <i class="fas fa-user me-2"></i>
+                        Benutzername
+                    </label>
+                    <input name="username" 
+                           class="form-control" 
+                           placeholder="Benutzername eingeben"
+                           autocomplete="username" required />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">
+                        <i class="fas fa-lock me-2"></i>
+                        Passwort
+                    </label>
+                    <input name="password" 
+                           type="password" 
+                           class="form-control" 
+                           placeholder="Passwort eingeben"
+                           autocomplete="current-password" required />
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt me-2"></i>
+                        <span>Anmelden</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+        <div class="card-footer text-center text-muted small">
+            <i class="fas fa-info-circle me-1"></i>
+            Anmeldung erforderlich für Verwaltungsfunktionen
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        // Redirect if already authenticated
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext?.User?.Identity?.IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/", true);
+        }
+    }
+}

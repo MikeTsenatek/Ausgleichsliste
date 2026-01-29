@@ -1,0 +1,282 @@
+@page "/benutzer"
+@using AusgleichslisteApp.Models
+@using AusgleichslisteApp.Services
+@using Microsoft.AspNetCore.Authorization
+@* @attribute [Authorize(Roles = "Admin")] *@
+@inject IDataService DataService
+@inject ISettlementService SettlementService
+@inject ISettingsService SettingsService
+@rendermode InteractiveServer
+
+<PageTitle>Benutzer verwalten - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
+
+<div class="container-xxl">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                Benutzer verwalten
+            </h1>
+        </div>
+    </div>
+    
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Wird geladen...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Neuen Benutzer hinzufügen -->
+            <div class="col-lg-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header text-white" style="background-color: #6c757d;">
+                        <h5 class="mb-0">
+                            Neuen Benutzer hinzufügen
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="newUserRequest" OnValidSubmit="AddUser">
+                            <div class="mb-3">
+                                <label class="form-label">Name/Kürzel</label>
+                                <InputText @bind-Value="newUserRequest.Name" class="form-control" placeholder="z.B. MX" />
+                                @if (!string.IsNullOrEmpty(validationMessage))
+                                {
+                                    <div class="text-danger small mt-1">@validationMessage</div>
+                                }
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100" disabled="@isProcessing">
+                                @if (isProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Hinzufügen
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Benutzer Liste -->
+            <div class="col-lg-8 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header text-white" style="background-color: #6c757d;">
+                        <h5 class="mb-0">
+                            Aktuelle Benutzer (@(users?.Count(u => u.IsActive) ?? 0))
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (users?.Any() == true)
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Saldo</th>
+                                            <th>Erstellt</th>
+                                            <th>Aktionen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var user in users.Where(u => u.IsActive).OrderBy(u => u.Name))
+                                        {
+                                            var balance = userBalances.GetValueOrDefault(user.Id, 0m);
+                                            var canDelete = Math.Abs(balance) < 0.01m;
+                                            
+                                            <tr>
+                                                <td>
+                                                    <strong>@user.Name</strong>
+                                                    @if (user.Name != user.InitialName)
+                                                    {
+                                                        <small class="text-muted">(urspr. @user.InitialName)</small>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (balance > 0)
+                                                    {
+                                                        <span class="badge bg-success">+@balance.ToString("F2") €</span>
+                                                    }
+                                                    else if (balance < 0)
+                                                    {
+                                                        <span class="badge bg-danger">@balance.ToString("F2") €</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">0.00 €</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <small class="text-muted">@user.CreatedAt.ToString("dd.MM.yyyy")</small>
+                                                </td>
+                                                <td>
+                                                    @if (canDelete)
+                                                    {
+                                                        <button class="btn btn-danger btn-sm" 
+                                                                @onclick="() => DeleteUser(user.Id)" 
+                                                                disabled="@isProcessing">
+                                                            Entfernen
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button class="btn btn-secondary btn-sm" disabled title="Saldo muss 0€ sein">
+                                                            Gesperrt
+                                                        </button>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted">Keine Benutzer vorhanden.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = string.Empty"></button>
+            </div>
+        }
+        
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+            </div>
+        }
+    }
+
+@code {
+    private List<User>? users;
+    private Dictionary<string, decimal> userBalances = new();
+    private AddUserRequest newUserRequest = new();
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private string validationMessage = string.Empty;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+    
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            users = await DataService.GetUsersAsync();
+            
+            // Lade Balancen für alle Benutzer
+            var balances = await SettlementService.CalculateBalancesAsync();
+            userBalances = balances.ToDictionary(b => b.UserId, b => b.NetBalance);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Laden der Daten: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task AddUser()
+    {
+        validationMessage = string.Empty;
+        errorMessage = string.Empty;
+        
+        if (!newUserRequest.IsValid())
+        {
+            validationMessage = "Name muss mindestens 2 Zeichen lang sein.";
+            return;
+        }
+        
+        // Prüfe ob Name bereits existiert
+        if (users?.Any(u => u.Name.Equals(newUserRequest.Name, StringComparison.OrdinalIgnoreCase)) == true)
+        {
+            validationMessage = "Ein Benutzer mit diesem Namen existiert bereits.";
+            return;
+        }
+        
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            var newUser = new User(
+                id: newUserRequest.Name.ToUpper(), 
+                name: newUserRequest.Name.ToUpper()
+            );
+            
+            await DataService.AddUserAsync(newUser);
+            await LoadData();
+            
+            newUserRequest = new AddUserRequest();
+            successMessage = $"Benutzer '{newUser.Name}' wurde erfolgreich hinzugefügt.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Hinzufügen des Benutzers: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task DeleteUser(string userId)
+    {
+        errorMessage = string.Empty;
+        
+        var canDelete = await SettlementService.CanDeleteUserAsync(userId);
+        if (!canDelete)
+        {
+            errorMessage = "Benutzer kann nur entfernt werden, wenn der Saldo 0€ beträgt.";
+            return;
+        }
+        
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            var user = users?.FirstOrDefault(u => u.Id == userId);
+            if (user != null)
+            {
+                await DataService.DeleteUserAsync(userId);
+                await LoadData();
+                successMessage = $"Benutzer '{user.Name}' wurde erfolgreich entfernt.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Entfernen des Benutzers: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+}
+</div>

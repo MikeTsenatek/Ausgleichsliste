@@ -1,0 +1,24 @@
+@page "/logout"
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authentication.Cookies
+@inject NavigationManager Navigation
+@inject ILogger<Logout> Logger
+@inject IHttpContextAccessor HttpContextAccessor
+
+@code {
+    private HttpContext? HttpContext => HttpContextAccessor.HttpContext;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (HttpContext?.User?.Identity?.IsAuthenticated == true)
+        {
+            var username = HttpContext.User?.Identity?.Name ?? "Unknown";
+            Logger.LogInformation("User {Username} is logging out", username);
+            
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            Logger.LogInformation("User {Username} logged out successfully", username);
+        }
+
+        Navigation.NavigateTo("/", true);
+    }
+}

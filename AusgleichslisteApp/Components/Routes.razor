@@ -1,0 +1,50 @@
+﻿<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    <div class="container-xxl d-flex justify-content-center align-items-center" style="min-height: 70vh;">
+                        <div class="card shadow text-center" style="width: 100%; max-width: 500px;">
+                            <div class="card-header bg-warning text-white">
+                                <h4 class="mb-0">
+                                    <i class="fas fa-lock me-2"></i>
+                                    Anmeldung erforderlich
+                                </h4>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-3">Sie müssen sich anmelden, um diese Seite zu besuchen.</p>
+                                <a href="/login" class="btn btn-primary">
+                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    Zur Anmeldung
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Seite nicht gefunden</PageTitle>
+            <LayoutView Layout="typeof(Layout.MainLayout)">
+                <div class="container-xxl d-flex justify-content-center align-items-center" style="min-height: 70vh;">
+                    <div class="card shadow text-center" style="width: 100%; max-width: 500px;">
+                        <div class="card-header bg-warning text-white">
+                            <h4 class="mb-0">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Seite nicht gefunden
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-3">Die angeforderte Seite konnte nicht gefunden werden.</p>
+                            <a href="/" class="btn btn-primary">
+                                <i class="fas fa-home me-2"></i>
+                                Zurück zur Startseite
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

@@ -1,0 +1,423 @@
+@page "/buchungen"
+@using AusgleichslisteApp.Models
+@using AusgleichslisteApp.Services
+@inject IDataService DataService
+@inject ISettlementService SettlementService
+@inject IJSRuntime JSRuntime
+@inject ISettingsService SettingsService
+@rendermode InteractiveServer
+
+<PageTitle>Buchungen verwalten - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
+
+<div class="container-xxl">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                Buchungen verwalten
+            </h1>
+        </div>
+    </div>
+    
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Wird geladen...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Neue Buchung hinzufügen -->
+            <div class="col-lg-4 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            Neue Buchung
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <EditForm Model="newBookingRequest" OnValidSubmit="AddBooking">
+                            <div class="mb-3">
+                                <label class="form-label">Datum</label>
+                                <InputDate @bind-Value="newBookingRequest.Date" class="form-control" />
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Artikel/Beschreibung</label>
+                                <InputText @bind-Value="newBookingRequest.Article" class="form-control" placeholder="z.B. Restaurant-Rechnung" />
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Zahler (wer hat bezahlt)</label>
+                                <InputSelect @bind-Value="newBookingRequest.PayerId" class="form-select">
+                                    <option value="">-- Auswählen --</option>
+                                    @if (users != null)
+                                    {
+                                        @foreach (var user in users.Where(u => u.IsActive).OrderBy(u => u.Name))
+                                        {
+                                            <option value="@user.Id">@user.Name</option>
+                                        }
+                                    }
+                                </InputSelect>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Begünstigter (für wen)</label>
+                                <InputSelect @bind-Value="newBookingRequest.BeneficiaryId" class="form-select">
+                                    <option value="">-- Auswählen --</option>
+                                    @if (users != null)
+                                    {
+                                        @foreach (var user in users.Where(u => u.IsActive).OrderBy(u => u.Name))
+                                        {
+                                            <option value="@user.Id">@user.Name</option>
+                                        }
+                                    }
+                                </InputSelect>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Betrag (€)</label>
+                                <InputNumber @bind-Value="newBookingRequest.Amount" class="form-control" step="0.01" min="0.01" />
+                            </div>
+                            
+                            @if (!string.IsNullOrEmpty(validationMessage))
+                            {
+                                <div class="alert alert-warning">@validationMessage</div>
+                            }
+                            
+                            <button type="submit" class="btn btn-primary w-100" disabled="@isProcessing">
+                                @if (isProcessing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                Hinzufügen
+                            </button>
+                        </EditForm>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Buchungen Liste -->
+            <div class="col-lg-8 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            Alle Buchungen (@(bookings?.Count ?? 0))
+                        </h5>
+                        <div>
+                            <button class="btn btn-outline-light btn-sm" @onclick="ToggleFilter">
+                                @if (showOnlySettlements)
+                                {
+                                    @("Alle anzeigen")
+                                }
+                                else
+                                {
+                                    @("Nur Ausgleiche")
+                                }
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (bookings?.Any() == true)
+                        {
+                            var filteredBookings = showOnlySettlements ? 
+                                bookings.Where(b => b.IsSettlement).ToList() : bookings.ToList();
+                            
+                            var sortedBookings = filteredBookings.OrderByDescending(b => b.Date).ThenByDescending(b => b.CreatedAt).ToList();
+                            var totalItems = sortedBookings.Count;
+                            var totalPages = (int)Math.Ceiling((double)totalItems / itemsPerPage);
+                            var pagedBookings = sortedBookings.Skip((currentPage - 1) * itemsPerPage).Take(itemsPerPage);
+                            
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Datum</th>
+                                            <th>Artikel</th>
+                                            <th>Zahler</th>
+                                            <th>Für</th>
+                                            <th>Betrag</th>
+                                            <th>Typ</th>
+                                            <th>Aktionen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var booking in pagedBookings)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <small>@booking.Date.ToString("dd.MM.yyyy")</small>
+                                                </td>
+                                                <td>
+                                                    <span title="@booking.Article">
+                                                        @(booking.Article.Length > 20 ? booking.Article[..17] + "..." : booking.Article)
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <strong>@(booking.Payer?.Name ?? booking.PayerId)</strong>
+                                                </td>
+                                                <td>
+                                                    <strong>@(booking.Beneficiary?.Name ?? booking.BeneficiaryId)</strong>
+                                                </td>
+                                                <td>
+                                                    <strong>@booking.Amount.ToString("F2") €</strong>
+                                                </td>
+                                                <td>
+                                                    @if (booking.IsSettlement)
+                                                    {
+                                                        <span class="text-muted">
+                                                            Ausgleich
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-dark">
+                                                            Buchung
+                                                        </span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-link text-danger p-1" 
+                                                            @onclick="() => ConfirmDeleteBooking(booking)" 
+                                                            disabled="@isProcessing"
+                                                            title="Buchung löschen"
+                                                            style="border: none; background: none;">
+                                                        @if (isProcessing && bookingToDelete?.Id == booking.Id)
+                                                        {
+                                                            <span class="spinner-border spinner-border-sm"></span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                                                            </svg>
+                                                        }
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- Pagination -->
+                            @if (totalPages > 1)
+                            {
+                                <nav aria-label="Buchungen Navigation">
+                                    <ul class="pagination justify-content-center mt-3">
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <button class="page-link" @onclick="() => GoToPage(currentPage - 1)" disabled="@(currentPage == 1)">
+                                                Zurück
+                                            </button>
+                                        </li>
+                                        
+                                        @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+                                        {
+                                            var pageNum = i;
+                                            <li class="page-item @(currentPage == pageNum ? "active" : "")">
+                                                <button class="page-link" @onclick="() => GoToPage(pageNum)">
+                                                    @pageNum
+                                                </button>
+                                            </li>
+                                        }
+                                        
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <button class="page-link" @onclick="() => GoToPage(currentPage + 1)" disabled="@(currentPage == totalPages)">
+                                                Weiter
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    
+                                    <div class="text-center text-muted small">
+                                        Seite @currentPage von @totalPages (@totalItems Buchungen)
+                                    </div>
+                                </nav>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <p class="text-muted">Noch keine Buchungen vorhanden.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success alert-dismissible fade show">
+                @successMessage
+                <button type="button" class="btn-close" @onclick="() => successMessage = string.Empty"></button>
+            </div>
+        }
+        
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger alert-dismissible fade show">
+                @errorMessage
+                <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+            </div>
+        }
+    }
+
+@code {
+    private List<User>? users;
+    private List<Booking>? bookings;
+    private AddBookingRequest newBookingRequest = new();
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private bool showOnlySettlements = false;
+    private string validationMessage = string.Empty;
+    private string successMessage = string.Empty;
+    private string errorMessage = string.Empty;
+    private Booking? bookingToDelete;
+    
+    // Pagination
+    private int currentPage = 1;
+    private int itemsPerPage = 100;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+    
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            users = await DataService.GetUsersAsync();
+            bookings = await DataService.GetBookingsAsync();
+            
+            // Setze Navigation Properties für bessere Anzeige
+            var userMap = users.ToDictionary(u => u.Id, u => u);
+            foreach (var booking in bookings)
+            {
+                booking.Payer = userMap.GetValueOrDefault(booking.PayerId);
+                booking.Beneficiary = userMap.GetValueOrDefault(booking.BeneficiaryId);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Laden der Daten: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task AddBooking()
+    {
+        validationMessage = string.Empty;
+        errorMessage = string.Empty;
+        
+        if (!newBookingRequest.IsValid())
+        {
+            validationMessage = "Bitte alle Felder korrekt ausfüllen. Zahler und Begünstigter müssen unterschiedlich sein.";
+            return;
+        }
+        
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            var booking = new Booking(
+                payerId: newBookingRequest.PayerId,
+                beneficiaryId: newBookingRequest.BeneficiaryId,
+                amount: newBookingRequest.Amount,
+                article: newBookingRequest.Article,
+                date: newBookingRequest.Date
+            );
+            
+            await DataService.AddBookingAsync(booking);
+            await LoadData();
+            
+            // Reset form
+            newBookingRequest = new AddBookingRequest { Date = DateTime.Now };
+            successMessage = $"Buchung '{booking.Article}' wurde erfolgreich hinzugefügt.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Hinzufügen der Buchung: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task ConfirmDeleteBooking(Booking booking)
+    {
+        if (booking == null) return;
+        
+        var payerName = booking.Payer?.Name ?? booking.PayerId;
+        var beneficiaryName = booking.Beneficiary?.Name ?? booking.BeneficiaryId;
+        var confirmMessage = $"Buchung wirklich löschen?\n\n" +
+                           $"Datum: {booking.Date:dd.MM.yyyy}\n" +
+                           $"Artikel: {booking.Article}\n" +
+                           $"Von: {payerName}\n" +
+                           $"Für: {beneficiaryName}\n" +
+                           $"Betrag: {booking.Amount:F2} €\n\n" +
+                           $"Diese Aktion kann nicht rückgängig gemacht werden.";
+        
+        // JavaScript confirm Dialog
+        var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Bookings.razor.js");
+        var confirmed = await module.InvokeAsync<bool>("confirmDelete", confirmMessage);
+        
+        if (confirmed)
+        {
+            await DeleteBooking(booking);
+        }
+    }
+    
+    private async Task DeleteBooking(Booking booking)
+    {
+        if (booking == null) return;
+        
+        bookingToDelete = booking;
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            await DataService.DeleteBookingAsync(booking.Id);
+            await LoadData();
+            successMessage = $"Buchung '{booking.Article}' wurde gelöscht.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Löschen der Buchung: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            bookingToDelete = null;
+            StateHasChanged();
+        }
+    }
+    
+    private void ToggleFilter()
+    {
+        showOnlySettlements = !showOnlySettlements;
+        currentPage = 1; // Reset to first page when filtering
+        StateHasChanged();
+    }
+    
+    private void GoToPage(int page)
+    {
+        currentPage = page;
+        StateHasChanged();
+    }
+}
+</div>

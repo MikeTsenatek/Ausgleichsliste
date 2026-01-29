@@ -1,0 +1,325 @@
+﻿@page "/"
+@using AusgleichslisteApp.Models
+@using AusgleichslisteApp.Services
+@using Microsoft.JSInterop
+@inject ISettlementService SettlementService
+@inject ISettingsService SettingsService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>@SettingsService.Settings.Branding.ApplicationName Dashboard</PageTitle>
+
+<div class="container-xxl">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                Dashboard
+            </h1>
+        </div>
+    </div>
+    
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Wird geladen...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <!-- Salden Overview -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            Aktuelle Salden
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (balances?.Any() == true)
+                        {
+                            @foreach (var balance in balances)
+                            {
+                                <div class="row mb-2 align-items-center">
+                                    <div class="col-4">
+                                        <strong>@balance.User?.Name</strong>
+                                    </div>
+                                    <div class="col-8">
+                                        @if (balance.NetBalance > 0)
+                                        {
+                                            <span class="badge bg-success fs-6">+@balance.NetBalance.ToString("F2") €</span>
+                                        }
+                                        else if (balance.NetBalance < 0)
+                                        {
+                                            <span class="badge bg-danger fs-6">@balance.NetBalance.ToString("F2") €</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary fs-6">0.00 €</span>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted">Keine Salden vorhanden.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Vorgeschlagene Ausgleichszahlungen -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            Empfohlene Ausgleichszahlungen
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (settlements?.Any() == true)
+                        {
+                            @foreach (var settlement in settlements)
+                            {
+                                <div class="row mb-3 align-items-center border rounded p-2">
+                                    <div class="col-7">
+                                        <div class="d-flex align-items-center">
+                                            <strong>@settlement.Payer?.Name</strong> 
+                                            <span class="text-muted mx-2">→</span>
+                                            <strong>@settlement.Recipient?.Name</strong>
+                                        </div>
+                                        <small class="text-muted">Empfohlen: @settlement.Amount.ToString("F2") €</small>
+                                    </div>
+                                    <div class="col-5 text-end">
+                                        <div class="d-flex gap-1 justify-content-end align-items-center">
+                                            <button class="btn btn-primary btn-sm" 
+                                                    @onclick="() => ConfirmApplySingleSettlement(settlement)" 
+                                                    disabled="@isProcessing">
+                                                @if (isProcessing && processingSettlementId == settlement.GetHashCode())
+                                                {
+                                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                                }
+                                                Exakt
+                                            </button>
+                                            <button class="btn btn-outline-primary btn-sm" 
+                                                    @onclick="() => ToggleCustomAmount(settlement.GetHashCode())"
+                                                    disabled="@isProcessing">
+                                                @if (customAmountSettlements.ContainsKey(settlement.GetHashCode()))
+                                                {
+                                                    @("✗")
+                                                }
+                                                else
+                                                {
+                                                    @("✎")
+                                                }
+                                            </button>
+                                        </div>
+                                        
+                                        @if (customAmountSettlements.ContainsKey(settlement.GetHashCode()))
+                                        {
+                                            <div class="mt-2">
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" 
+                                                           class="form-control" 
+                                                           @bind="customAmountSettlements[settlement.GetHashCode()]"
+                                                           step="0.01" 
+                                                           min="0.01" 
+                                                           placeholder="@settlement.Amount.ToString("F2")" />
+                                                    <span class="input-group-text">€</span>
+                                                    <button class="btn btn-success" 
+                                                            type="button"
+                                                            @onclick="() => ApplyCustomSettlement(settlement, customAmountSettlements[settlement.GetHashCode()])"
+                                                            disabled="@(isProcessing || customAmountSettlements[settlement.GetHashCode()] <= 0)">
+                                                        @if (isProcessing && processingSettlementId == settlement.GetHashCode())
+                                                        {
+                                                            <span class="spinner-border spinner-border-sm"></span>
+                                                        }
+                                                        else
+                                                        {
+                                                            @("OK")
+                                                        }
+                                                    </button>
+                                                </div>
+                                                <small class="text-muted">
+                                                    @if (customAmountSettlements[settlement.GetHashCode()] > settlement.Amount)
+                                                    {
+                                                        @($"+{(customAmountSettlements[settlement.GetHashCode()] - settlement.Amount):F2} € extra")
+                                                    }
+                                                    else if (customAmountSettlements[settlement.GetHashCode()] < settlement.Amount)
+                                                    {
+                                                        @($"{(customAmountSettlements[settlement.GetHashCode()] - settlement.Amount):F2} € weniger")
+                                                    }
+                                                </small>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            <hr />
+                            <div class="text-center">
+                                <small class="text-muted">
+                                    Diese @settlements.Count Zahlung(en) würden alle Schulden ausgleichen.
+                                </small>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center">
+                                <div class="text-success display-1 mb-3">✓</div>
+                                <p class="text-success">Alle Schulden sind ausgeglichen!</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+@code {
+    private List<Balance>? balances;
+    private List<Settlement>? settlements;
+    private bool isLoading = true;
+    private bool isProcessing = false;
+    private int processingSettlementId = -1;
+    private Dictionary<int, decimal> customAmountSettlements = new();
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+    }
+    
+    private async Task RefreshData()
+    {
+        isLoading = true;
+        StateHasChanged();
+        
+        try
+        {
+            balances = await SettlementService.CalculateBalancesAsync();
+            settlements = await SettlementService.CalculateMinimalTransfersAsync();
+        }
+        catch (Exception ex)
+        {
+            // In einer echten App würde man hier Logging machen
+            Console.WriteLine($"Fehler beim Laden der Daten: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task ApplySingleSettlement(Settlement settlement)
+    {
+        if (settlement == null) return;
+        
+        processingSettlementId = settlement.GetHashCode();
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            await SettlementService.ApplySettlementAsync(settlement);
+            await RefreshData(); // Daten neu laden
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fehler beim Anwenden der Ausgleichszahlung: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+            processingSettlementId = -1;
+            StateHasChanged();
+        }
+    }
+    
+    private void ToggleCustomAmount(int settlementId)
+    {
+        if (customAmountSettlements.ContainsKey(settlementId))
+        {
+            customAmountSettlements.Remove(settlementId);
+        }
+        else
+        {
+            var settlement = settlements?.FirstOrDefault(s => s.GetHashCode() == settlementId);
+            if (settlement != null)
+            {
+                customAmountSettlements[settlementId] = settlement.Amount;
+            }
+        }
+        StateHasChanged();
+    }
+    
+    private async Task ApplyCustomSettlement(Settlement originalSettlement, decimal customAmount)
+    {
+        if (originalSettlement == null || customAmount <= 0) return;
+        
+        processingSettlementId = originalSettlement.GetHashCode();
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Erstelle ein neues Settlement mit dem benutzerdefinierten Betrag
+            var customSettlement = new Settlement
+            {
+                PayerId = originalSettlement.PayerId,
+                RecipientId = originalSettlement.RecipientId,
+                Amount = customAmount,
+                Payer = originalSettlement.Payer,
+                Recipient = originalSettlement.Recipient
+            };
+            
+            await SettlementService.ApplySettlementAsync(customSettlement);
+            
+            // Entferne den Custom Amount nach erfolgreichem Ausgleich
+            customAmountSettlements.Remove(originalSettlement.GetHashCode());
+            
+            await RefreshData(); // Daten neu laden
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fehler beim Anwenden der benutzerdefinierten Ausgleichszahlung: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+            processingSettlementId = -1;
+            StateHasChanged();
+        }
+    }
+    
+    private void NavigateToBookings()
+    {
+        NavigationManager.NavigateTo("/buchungen");
+    }
+    
+    private void NavigateToUsers()
+    {
+        NavigationManager.NavigateTo("/benutzer");
+    }
+    
+    private async Task ConfirmApplySingleSettlement(Settlement settlement)
+    {
+        if (settlement == null) return;
+        
+        var message = $"Möchten Sie diese Ausgleichszahlung durchführen?\n\n{settlement.Payer?.Name} zahlt {settlement.Amount:F2} € an {settlement.Recipient?.Name}\n\nDies erstellt eine entsprechende Buchung.";
+        
+        var module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Home.razor.js");
+        var confirmed = await module.InvokeAsync<bool>("confirmApplySettlement", message);
+        
+        if (confirmed)
+        {
+            await ApplySingleSettlement(settlement);
+        }
+        
+        await module.DisposeAsync();
+    }
+}
+</div>
