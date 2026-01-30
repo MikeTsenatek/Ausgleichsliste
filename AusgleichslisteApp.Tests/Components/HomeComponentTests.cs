@@ -9,11 +9,15 @@ namespace AusgleichslisteApp.Tests.Components;
 public class HomeComponentTests : TestContext
 {
     private readonly Mock<ISettlementService> _mockSettlementService;
+    private readonly Mock<ISettingsService> _mockSettingsService;
 
     public HomeComponentTests()
     {
         _mockSettlementService = new Mock<ISettlementService>();
+        _mockSettingsService = new Mock<ISettingsService>();
+        
         Services.AddSingleton(_mockSettlementService.Object);
+        Services.AddSingleton(_mockSettingsService.Object);
     }
 
     [Fact]

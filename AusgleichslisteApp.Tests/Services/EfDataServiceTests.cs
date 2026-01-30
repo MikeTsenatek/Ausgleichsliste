@@ -212,9 +212,11 @@ public class EfDataServiceTests : IDisposable
         // Act
         await _service.DeleteBookingAsync(booking.Id);
 
-        // Assert
+        // Assert - Booking sollte soft-deleted sein (IsDeleted = true)
         var dbBooking = await _context.Bookings.FindAsync(bookingId);
-        dbBooking.Should().BeNull();
+        dbBooking.Should().NotBeNull();
+        dbBooking!.IsDeleted.Should().BeTrue();
+        dbBooking.DeletedAt.Should().NotBeNull();
     }
 
     public void Dispose()

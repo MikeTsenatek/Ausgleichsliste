@@ -10,14 +10,17 @@ public class UsersComponentTests : TestContext
 {
     private readonly Mock<IDataService> _mockDataService;
     private readonly Mock<ISettlementService> _mockSettlementService;
+    private readonly Mock<ISettingsService> _mockSettingsService;
 
     public UsersComponentTests()
     {
         _mockDataService = new Mock<IDataService>();
         _mockSettlementService = new Mock<ISettlementService>();
+        _mockSettingsService = new Mock<ISettingsService>();
         
         Services.AddSingleton(_mockDataService.Object);
         Services.AddSingleton(_mockSettlementService.Object);
+        Services.AddSingleton(_mockSettingsService.Object);
     }
 
     [Fact]
