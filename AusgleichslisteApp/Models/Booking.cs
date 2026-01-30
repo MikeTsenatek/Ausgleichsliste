@@ -13,6 +13,8 @@ namespace AusgleichslisteApp.Models
         public decimal Amount { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public bool IsSettlement { get; set; } = false; // True für automatische Ausgleichsbuchungen
+        public bool IsDeleted { get; set; } = false; // Soft Delete Flag
+        public DateTime? DeletedAt { get; set; } // Zeitpunkt der Löschung
         
         /// <summary>
         /// Navigation properties (werden beim Laden gesetzt)

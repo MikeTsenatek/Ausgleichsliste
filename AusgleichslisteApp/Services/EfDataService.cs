@@ -38,6 +38,7 @@ namespace AusgleichslisteApp.Services
             try
             {
                 var bookings = await _context.Bookings
+                    .Where(b => !b.IsDeleted) // Nur nicht-gelöschte Buchungen
                     .OrderByDescending(b => b.Date)
                     .ThenByDescending(b => b.CreatedAt)
                     .ToListAsync();
@@ -58,6 +59,35 @@ namespace AusgleichslisteApp.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Fehler beim Laden der Buchungen");
+                throw;
+            }
+        }
+        
+        public async Task<List<Booking>> GetAllBookingsIncludingDeletedAsync()
+        {
+            try
+            {
+                var bookings = await _context.Bookings
+                    .OrderByDescending(b => b.Date)
+                    .ThenByDescending(b => b.CreatedAt)
+                    .ToListAsync();
+                
+                // Lade Users separat für Navigation Properties
+                var users = await _context.Users.ToListAsync();
+                var userMap = users.ToDictionary(u => u.Id, u => u);
+                
+                // Setze Navigation Properties manuell
+                foreach (var booking in bookings)
+                {
+                    booking.Payer = userMap.GetValueOrDefault(booking.PayerId);
+                    booking.Beneficiary = userMap.GetValueOrDefault(booking.BeneficiaryId);
+                }
+                
+                return bookings;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Laden aller Buchungen");
                 throw;
             }
         }
@@ -194,9 +224,11 @@ namespace AusgleichslisteApp.Services
                 var booking = await _context.Bookings.FindAsync(id);
                 if (booking != null)
                 {
-                    _context.Bookings.Remove(booking);
+                    // Soft Delete: Markiere als gelöscht statt physikalisch zu löschen
+                    booking.IsDeleted = true;
+                    booking.DeletedAt = DateTime.Now;
                     await _context.SaveChangesAsync();
-                    _logger.LogInformation("Buchung gelöscht: {Article} - {Amount:F2}€ (ID: {BookingId})", 
+                    _logger.LogInformation("Buchung als gelöscht markiert: {Article} - {Amount:F2}€ (ID: {BookingId})", 
                         booking.Article, booking.Amount, id);
                 }
                 else

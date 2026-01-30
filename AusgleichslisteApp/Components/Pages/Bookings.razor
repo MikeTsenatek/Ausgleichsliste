@@ -107,6 +107,16 @@
                             Alle Buchungen (@(bookings?.Count ?? 0))
                         </h5>
                         <div>
+                            <button class="btn btn-outline-light btn-sm me-2" @onclick="ToggleDeleted">
+                                @if (showDeleted)
+                                {
+                                    @("Gelöschte verbergen")
+                                }
+                                else
+                                {
+                                    @("Gelöschte anzeigen")
+                                }
+                            </button>
                             <button class="btn btn-outline-light btn-sm" @onclick="ToggleFilter">
                                 @if (showOnlySettlements)
                                 {
@@ -146,9 +156,13 @@
                                     <tbody>
                                         @foreach (var booking in pagedBookings)
                                         {
-                                            <tr>
+                                            <tr class="@(booking.IsDeleted ? "table-secondary" : "")" style="@(booking.IsDeleted ? "text-decoration: line-through; opacity: 0.6;" : "")">
                                                 <td>
                                                     <small>@booking.Date.ToString("dd.MM.yyyy")</small>
+                                                    @if (booking.IsDeleted)
+                                                    {
+                                                        <br><small class="text-muted">Gelöscht: @booking.DeletedAt?.ToString("dd.MM.yyyy HH:mm")</small>
+                                                    }
                                                 </td>
                                                 <td>
                                                     <span title="@booking.Article">
@@ -165,7 +179,13 @@
                                                     <strong>@booking.Amount.ToString("F2") €</strong>
                                                 </td>
                                                 <td>
-                                                    @if (booking.IsSettlement)
+                                                    @if (booking.IsDeleted)
+                                                    {
+                                                        <span class="text-muted">
+                                                            Gelöscht
+                                                        </span>
+                                                    }
+                                                    else if (booking.IsSettlement)
                                                     {
                                                         <span class="text-muted">
                                                             Ausgleich
@@ -179,23 +199,30 @@
                                                     }
                                                 </td>
                                                 <td>
-                                                    <button class="btn btn-link text-danger p-1" 
-                                                            @onclick="() => ConfirmDeleteBooking(booking)" 
-                                                            disabled="@isProcessing"
-                                                            title="Buchung löschen"
-                                                            style="border: none; background: none;">
-                                                        @if (isProcessing && bookingToDelete?.Id == booking.Id)
-                                                        {
-                                                            <span class="spinner-border spinner-border-sm"></span>
-                                                        }
-                                                        else
-                                                        {
-                                                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
-                                                                <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
-                                                            </svg>
-                                                        }
-                                                    </button>
+                                                    @if (!booking.IsDeleted)
+                                                    {
+                                                        <button class="btn btn-link text-danger p-1" 
+                                                                @onclick="() => ConfirmDeleteBooking(booking)" 
+                                                                disabled="@isProcessing"
+                                                                title="Buchung löschen"
+                                                                style="border: none; background: none;">
+                                                            @if (isProcessing && bookingToDelete?.Id == booking.Id)
+                                                            {
+                                                                <span class="spinner-border spinner-border-sm"></span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/>
+                                                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/>
+                                                                </svg>
+                                                            }
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted small">Gelöscht</span>
+                                                    }
                                                 </td>
                                             </tr>
                                         }
@@ -272,6 +299,7 @@
     private bool isLoading = true;
     private bool isProcessing = false;
     private bool showOnlySettlements = false;
+    private bool showDeleted = false; // Flag für Anzeige gelöschter Buchungen
     private string validationMessage = string.Empty;
     private string successMessage = string.Empty;
     private string errorMessage = string.Empty;
@@ -294,7 +322,15 @@
         try
         {
             users = await DataService.GetUsersAsync();
-            bookings = await DataService.GetBookingsAsync();
+            // Lade Buchungen basierend auf showDeleted Flag
+            if (showDeleted)
+            {
+                bookings = await DataService.GetAllBookingsIncludingDeletedAsync();
+            }
+            else
+            {
+                bookings = await DataService.GetBookingsAsync();
+            }
             
             // Setze Navigation Properties für bessere Anzeige
             var userMap = users.ToDictionary(u => u.Id, u => u);
@@ -405,6 +441,13 @@
             bookingToDelete = null;
             StateHasChanged();
         }
+    }
+    
+    private async Task ToggleDeleted()
+    {
+        showDeleted = !showDeleted;
+        currentPage = 1; // Reset to first page when toggling
+        await LoadData(); // Reload data to include/exclude deleted bookings
     }
     
     private void ToggleFilter()

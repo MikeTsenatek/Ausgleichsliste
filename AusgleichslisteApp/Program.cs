@@ -27,7 +27,18 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 // Add MVC Controllers for Authentication
-builder.Services.AddControllers();
+builder.Services.AddControllersWithViews(); // This includes TempData services
+
+// Add distributed cache (required for sessions)
+builder.Services.AddDistributedMemoryCache();
+
+// Add session services for TempData
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
 // Konfiguriere Anwendungseinstellungen
 builder.Services.Configure<ApplicationSettings>(
@@ -105,6 +116,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Add session middleware for TempData support
+app.UseSession();
 
 // Authentication & Authorization middleware
 app.UseAuthentication();

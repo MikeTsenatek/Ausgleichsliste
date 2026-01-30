@@ -9,6 +9,7 @@ namespace AusgleichslisteApp.Services
     {
         Task<List<User>> GetUsersAsync();
         Task<List<Booking>> GetBookingsAsync();
+        Task<List<Booking>> GetAllBookingsIncludingDeletedAsync(); // Für Admin-Zwecke
         Task SaveUsersAsync(List<User> users);
         Task SaveBookingsAsync(List<Booking> bookings);
         Task<User?> GetUserByIdAsync(string id);
