@@ -7,7 +7,8 @@
     box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
     margin: 0;
     padding: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -27,7 +28,7 @@ html, body {
 .site-header {
     /* background wird von CSS-Variablen überschrieben */
     border-bottom: 2px solid #e9ecef;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -116,14 +117,18 @@ html, body {
 }
 
 .nav-link:hover {
-    color: inherit; /* Wird von DynamicColors.razor überschrieben */
-    background-color: inherit; /* Wird von DynamicColors.razor überschrieben */
+    color: inherit;
+    /* Wird von DynamicColors.razor überschrieben */
+    background-color: inherit;
+    /* Wird von DynamicColors.razor überschrieben */
     text-decoration: none;
 }
 
 .nav-link.active {
-    color: inherit; /* Wird von DynamicColors.razor überschrieben */
-    background-color: inherit; /* Wird von DynamicColors.razor überschrieben */
+    color: inherit;
+    /* Wird von DynamicColors.razor überschrieben */
+    background-color: inherit;
+    /* Wird von DynamicColors.razor überschrieben */
     font-weight: 700;
     position: relative;
 }
@@ -135,7 +140,8 @@ html, body {
     left: 0;
     right: 0;
     height: 3px;
-    background-color: inherit; /* Wird von DynamicColors.razor überschrieben */
+    background-color: inherit;
+    /* Wird von DynamicColors.razor überschrieben */
 }
 
 /* Mobile Toggle */
@@ -213,7 +219,7 @@ html, body {
 /* Cards */
 .card {
     border: none;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
     margin-bottom: 2rem;
     background: #fff;
@@ -294,15 +300,17 @@ html, body {
 }
 
 /* Forms */
-.form-control, .form-select {
+.form-control,
+.form-select {
     border-radius: 6px;
     border: 1px solid #ced4da;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.form-control:focus, .form-select:focus {
+.form-control:focus,
+.form-select:focus {
     border-color: #6c757d;
-    box-shadow: 0 0 0 0.2rem rgba(108,117,125,0.25);
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
 }
 
 /* Pagination */
@@ -332,32 +340,32 @@ html, body {
     .header-content {
         height: 60px;
     }
-    
+
     .brand-section {
         padding-left: 1rem;
     }
-    
+
     .main-nav {
         display: none;
     }
-    
+
     .mobile-toggle {
         display: flex;
         margin-right: 1rem;
     }
-    
+
     .container-xxl {
         padding: 1rem;
     }
-    
+
     .brand-section {
         gap: 0.5rem;
     }
-    
+
     .app-title {
         display: none;
     }
-    
+
     .brand-link {
         font-size: 1.3rem;
     }
@@ -405,19 +413,21 @@ html, body {
     color: white;
 }
 
-    .blazor-error-boundary::after {
-        content: "An error has occurred."
-    }
+.blazor-error-boundary::after {
+    content: "An error has occurred."
+}
 
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
+.form-floating>.form-control-plaintext::placeholder,
+.form-floating>.form-control::placeholder {
     color: var(--bs-secondary-color);
     text-align: end;
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
+.form-floating>.form-control-plaintext:focus::placeholder,
+.form-floating>.form-control:focus::placeholder {
     text-align: start;
 }

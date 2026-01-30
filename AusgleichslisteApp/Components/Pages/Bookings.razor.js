@@ -1,11 +1,11 @@
 // JavaScript module for Bookings.razor
 export function confirmDelete(message) {
-    return new Promise((resolve) => {
-        // Erstelle Modal HTML
-        const modal = document.createElement('div');
-        modal.className = 'modal fade show d-block';
-        modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
-        modal.innerHTML = `
+  return new Promise((resolve) => {
+    // Erstelle Modal HTML
+    const modal = document.createElement("div");
+    modal.className = "modal fade show d-block";
+    modal.style.backgroundColor = "rgba(0,0,0,0.5)";
+    modal.innerHTML = `
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header bg-danger text-white">
@@ -39,61 +39,61 @@ export function confirmDelete(message) {
                 </div>
             </div>
         `;
-        
-        // Füge Modal zum DOM hinzu
-        document.body.appendChild(modal);
-        
-        // Focus auf Abbrechen-Button (sicherere Standard-Aktion)
-        const cancelBtn = modal.querySelector('#cancelBtn');
-        const confirmBtn = modal.querySelector('#confirmBtn');
-        
-        setTimeout(() => cancelBtn.focus(), 100);
-        
-        // Event Handler
-        const cleanup = () => {
-            modal.remove();
-        };
-        
-        cancelBtn.onclick = () => {
-            cleanup();
-            resolve(false);
-        };
-        
-        confirmBtn.onclick = () => {
-            cleanup();
-            resolve(true);
-        };
-        
-        // ESC-Taste = Abbrechen
-        const handleKeydown = (e) => {
-            if (e.key === 'Escape') {
-                cleanup();
-                document.removeEventListener('keydown', handleKeydown);
-                resolve(false);
-            }
-            // Enter auf Abbrechen-Button = Abbrechen
-            if (e.key === 'Enter' && document.activeElement === cancelBtn) {
-                cleanup();
-                document.removeEventListener('keydown', handleKeydown);
-                resolve(false);
-            }
-            // Enter auf Löschen-Button = Bestätigen
-            if (e.key === 'Enter' && document.activeElement === confirmBtn) {
-                cleanup();
-                document.removeEventListener('keydown', handleKeydown);
-                resolve(true);
-            }
-        };
-        
-        document.addEventListener('keydown', handleKeydown);
-        
-        // Klick außerhalb = Abbrechen
-        modal.onclick = (e) => {
-            if (e.target === modal) {
-                cleanup();
-                document.removeEventListener('keydown', handleKeydown);
-                resolve(false);
-            }
-        };
-    });
+
+    // Füge Modal zum DOM hinzu
+    document.body.appendChild(modal);
+
+    // Focus auf Abbrechen-Button (sicherere Standard-Aktion)
+    const cancelBtn = modal.querySelector("#cancelBtn");
+    const confirmBtn = modal.querySelector("#confirmBtn");
+
+    setTimeout(() => cancelBtn.focus(), 100);
+
+    // Event Handler
+    const cleanup = () => {
+      modal.remove();
+    };
+
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    confirmBtn.onclick = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    // ESC-Taste = Abbrechen
+    const handleKeydown = (e) => {
+      if (e.key === "Escape") {
+        cleanup();
+        document.removeEventListener("keydown", handleKeydown);
+        resolve(false);
+      }
+      // Enter auf Abbrechen-Button = Abbrechen
+      if (e.key === "Enter" && document.activeElement === cancelBtn) {
+        cleanup();
+        document.removeEventListener("keydown", handleKeydown);
+        resolve(false);
+      }
+      // Enter auf Löschen-Button = Bestätigen
+      if (e.key === "Enter" && document.activeElement === confirmBtn) {
+        cleanup();
+        document.removeEventListener("keydown", handleKeydown);
+        resolve(true);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeydown);
+
+    // Klick außerhalb = Abbrechen
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        cleanup();
+        document.removeEventListener("keydown", handleKeydown);
+        resolve(false);
+      }
+    };
+  });
 }

@@ -1,6 +1,12 @@
 @page "/login"
+@using AusgleichslisteApp.Services
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
 @inject NavigationManager Navigation
 @inject IHttpContextAccessor HttpContextAccessor
+@inject IAuthService AuthService
+@inject ILogger<Login> Logger
 
 <PageTitle>Anmelden</PageTitle>
 
@@ -13,16 +19,27 @@
             </h4>
         </div>
         <div class="card-body">
-            <form method="post" action="/api/login">
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <div class="alert alert-danger" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    @errorMessage
+                </div>
+            }
+
+            <EditForm Model="loginModel" OnValidSubmit="HandleLogin" FormName="loginForm">
+                <DataAnnotationsValidator />
+                
                 <div class="mb-3">
                     <label class="form-label">
                         <i class="fas fa-user me-2"></i>
                         Benutzername
                     </label>
-                    <input name="username" 
-                           class="form-control" 
-                           placeholder="Benutzername eingeben"
-                           autocomplete="username" required />
+                    <InputText @bind-Value="loginModel.Username" 
+                               class="form-control" 
+                               placeholder="Benutzername eingeben"
+                               autocomplete="username" />
+                    <ValidationMessage For="@(() => loginModel.Username)" />
                 </div>
 
                 <div class="mb-4">
@@ -30,20 +47,29 @@
                         <i class="fas fa-lock me-2"></i>
                         Passwort
                     </label>
-                    <input name="password" 
-                           type="password" 
-                           class="form-control" 
-                           placeholder="Passwort eingeben"
-                           autocomplete="current-password" required />
+                    <InputText @bind-Value="loginModel.Password" 
+                               type="password" 
+                               class="form-control" 
+                               placeholder="Passwort eingeben"
+                               autocomplete="current-password" />
+                    <ValidationMessage For="@(() => loginModel.Password)" />
                 </div>
 
                 <div class="d-grid">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-sign-in-alt me-2"></i>
-                        <span>Anmelden</span>
+                    <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                        @if (isLoading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span>Anmelden...</span>
+                        }
+                        else
+                        {
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            <span>Anmelden</span>
+                        }
                     </button>
                 </div>
-            </form>
+            </EditForm>
         </div>
         <div class="card-footer text-center text-muted small">
             <i class="fas fa-info-circle me-1"></i>
@@ -53,13 +79,64 @@
 </div>
 
 @code {
+    [SupplyParameterFromForm]
+    private LoginModel? loginModel { get; set; }
+    
+    private string? errorMessage;
+    private bool isLoading;
+
     protected override void OnInitialized()
     {
+        loginModel ??= new();
+        
         // Redirect if already authenticated
         var httpContext = HttpContextAccessor.HttpContext;
         if (httpContext?.User?.Identity?.IsAuthenticated == true)
         {
             Navigation.NavigateTo("/", true);
         }
+    }
+
+    private async Task HandleLogin()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var result = await AuthService.LoginAsync(loginModel!.Username, loginModel.Password);
+            
+            if (result.Success)
+            {
+                // NavigationException ist das erwartete Verhalten für Redirects in statischen Komponenten
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = result.ErrorMessage;
+                isLoading = false;
+            }
+        }
+        catch (NavigationException)
+        {
+            // Dies ist kein Fehler - NavigationException wird von Blazor verwendet um die Weiterleitung durchzuführen
+            // Die Exception wird vom Framework verarbeitet und führt zur korrekten Weiterleitung
+            throw; // Re-throw damit das Framework die Weiterleitung durchführen kann
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unexpected error during login");
+            errorMessage = "Ein Fehler ist aufgetreten: " + ex.Message;
+            isLoading = false;
+        }
+    }
+
+    private class LoginModel
+    {
+        [Required(ErrorMessage = "Benutzername ist erforderlich")]
+        public string Username { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Passwort ist erforderlich")]
+        public string Password { get; set; } = string.Empty;
     }
 }

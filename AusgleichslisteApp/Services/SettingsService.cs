@@ -12,27 +12,23 @@ namespace AusgleichslisteApp.Services
         /// Aktuelle Anwendungseinstellungen (Datenbank + appsettings.json)
         /// </summary>
         Task<ApplicationSettings> GetSettingsAsync();
-        
+
         /// <summary>
         /// Lädt Settings neu aus der Konfiguration
         /// </summary>
         Task ReloadSettingsAsync();
-        
+
         /// <summary>
         /// Speichert Einstellungen (jetzt in Datenbank)
         /// </summary>
         Task SaveSettingsAsync(ApplicationSettings settings);
-        
 
-        
-
-        
         /// <summary>
         /// Legacy-Property für Kompatibilität (lädt aus Datenbank)
         /// </summary>
         ApplicationSettings Settings { get; }
     }
-    
+
     /// <summary>
     /// Service für Settings-Verwaltung mit Datenbank-Unterstützung
     /// </summary>
@@ -45,9 +41,9 @@ namespace AusgleichslisteApp.Services
         private ApplicationSettings? _cachedSettings;
         private DateTime _lastCacheUpdate = DateTime.MinValue;
         private readonly TimeSpan _cacheTimeout = TimeSpan.FromMinutes(5);
-        
+
         public SettingsService(
-            IOptionsMonitor<ApplicationSettings> optionsMonitor, 
+            IOptionsMonitor<ApplicationSettings> optionsMonitor,
             IConfiguration configuration,
             ILogger<SettingsService> logger,
             ISettingsDatabaseService settingsDatabaseService)
@@ -57,8 +53,8 @@ namespace AusgleichslisteApp.Services
             _logger = logger;
             _settingsDatabaseService = settingsDatabaseService;
         }
-        
-        public ApplicationSettings Settings 
+
+        public ApplicationSettings Settings
         {
             get
             {
@@ -67,7 +63,7 @@ namespace AusgleichslisteApp.Services
                 {
                     return _cachedSettings;
                 }
-                
+
                 // Wenn Cache abgelaufen ist, versuche async zu laden
                 Task.Run(async () =>
                 {
@@ -81,11 +77,11 @@ namespace AusgleichslisteApp.Services
                         _logger.LogWarning(ex, "Fehler beim Laden der Settings aus der Datenbank, verwende appsettings.json");
                     }
                 });
-                
+
                 return _cachedSettings ?? _optionsMonitor.CurrentValue;
             }
         }
-        
+
         public async Task<ApplicationSettings> GetSettingsAsync()
         {
             try
@@ -95,11 +91,11 @@ namespace AusgleichslisteApp.Services
                 {
                     return _cachedSettings;
                 }
-                
+
                 // Lade aus Datenbank
                 _cachedSettings = await _settingsDatabaseService.GetApplicationSettingsAsync();
                 _lastCacheUpdate = DateTime.UtcNow;
-                
+
                 return _cachedSettings;
             }
             catch (Exception ex)
@@ -108,7 +104,7 @@ namespace AusgleichslisteApp.Services
                 return _optionsMonitor.CurrentValue; // Fallback
             }
         }
-        
+
         public async Task ReloadSettingsAsync()
         {
             try
@@ -122,23 +118,23 @@ namespace AusgleichslisteApp.Services
                 _logger.LogError(ex, "Fehler beim Neuladen der Settings");
             }
         }
-        
+
         public async Task SaveSettingsAsync(ApplicationSettings settings)
         {
             try
             {
                 await _settingsDatabaseService.SaveBrandingSettingsAsync(settings.Branding);
-                
+
                 // Speichere auch allgemeine Settings
                 await _settingsDatabaseService.SetSettingAsync("Currency", settings.Currency, "General", "Währungssymbol");
                 await _settingsDatabaseService.SetSettingAsync("DateCulture", settings.DateCulture, "General", "Datumskultur");
                 await _settingsDatabaseService.SetSettingAsync("ItemsPerPage", settings.ItemsPerPage.ToString(), "General", "Einträge pro Seite");
                 await _settingsDatabaseService.SetSettingAsync("ShowDebugInfo", settings.ShowDebugInfo.ToString(), "General", "Debug-Informationen anzeigen");
-                
+
                 // Cache leeren
                 _cachedSettings = null;
                 _lastCacheUpdate = DateTime.MinValue;
-                
+
                 _logger.LogInformation("Einstellungen erfolgreich in der Datenbank gespeichert");
             }
             catch (Exception ex)
