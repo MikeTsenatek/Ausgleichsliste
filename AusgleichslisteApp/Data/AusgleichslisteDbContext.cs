@@ -16,7 +16,7 @@ namespace AusgleichslisteApp.Data
         public DbSet<User> Users { get; set; } = default!;
         public DbSet<Booking> Bookings { get; set; } = default!;
         public DbSet<Logo> Logos { get; set; } = default!;
-        public DbSet<ApplicationSetting> ApplicationSettings { get; set; } = default!;
+        public DbSet<ConfigurationEntry> ApplicationSettings { get; set; } = default!;
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -89,7 +89,7 @@ namespace AusgleichslisteApp.Data
             });
             
             // ApplicationSettings Konfiguration
-            modelBuilder.Entity<ApplicationSetting>(entity =>
+            modelBuilder.Entity<ConfigurationEntry>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id).IsRequired();

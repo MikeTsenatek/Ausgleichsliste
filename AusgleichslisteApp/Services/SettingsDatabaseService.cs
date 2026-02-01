@@ -97,7 +97,7 @@ namespace AusgleichslisteApp.Services
                 }
                 else
                 {
-                    var newSetting = new ApplicationSetting(key, value, category, description);
+                    var newSetting = new ConfigurationEntry(key, value, category, description);
                     _context.ApplicationSettings.Add(newSetting);
                 }
                 

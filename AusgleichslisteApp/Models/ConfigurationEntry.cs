@@ -3,7 +3,7 @@ namespace AusgleichslisteApp.Models
     /// <summary>
     /// Datenbank-Model für Anwendungseinstellungen
     /// </summary>
-    public class ApplicationSetting
+    public class ConfigurationEntry
     {
         public int Id { get; set; }
         public string Key { get; set; } = string.Empty;
@@ -13,9 +13,9 @@ namespace AusgleichslisteApp.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         
-        public ApplicationSetting() { }
+        public ConfigurationEntry() { }
         
-        public ApplicationSetting(string key, string value, string category = "", string description = "")
+        public ConfigurationEntry(string key, string value, string category = "", string description = "")
         {
             Key = key;
             Value = value;
