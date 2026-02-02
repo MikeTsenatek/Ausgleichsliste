@@ -1,12 +1,13 @@
 @using AusgleichslisteApp.Services
 @inject ISettingsCacheService SettingsCache
+@implements IDisposable
 
 <style>
     :root {
-        --primary-color: @SettingsCache.GetSettings().Branding.PrimaryColor;
-        --secondary-color: @SettingsCache.GetSettings().Branding.SecondaryColor;
-        --primary-rgb: @GetRgbValues(SettingsCache.GetSettings().Branding.PrimaryColor);
-        --secondary-rgb: @GetRgbValues(SettingsCache.GetSettings().Branding.SecondaryColor);
+        --primary-color: @GetPrimaryColor();
+        --secondary-color: @GetSecondaryColor();
+        --primary-rgb: @GetRgbValues(GetPrimaryColor());
+        --secondary-rgb: @GetRgbValues(GetSecondaryColor());
     }
     
     /* === GRUNDLEGENDE OVERRIDES === */
@@ -62,6 +63,56 @@
 </style>
 
 @code {
+    private Timer? _refreshTimer;
+    
+    protected override void OnInitialized()
+    {
+        // Setze einen Timer für regelmäßige Updates
+        _refreshTimer = new Timer(async _ => await InvokeAsync(StateHasChanged), null, TimeSpan.Zero, TimeSpan.FromSeconds(30));
+    }
+    
+    private string GetPrimaryColor()
+    {
+        try
+        {
+            var settings = SettingsCache.GetSettings();
+            var color = settings?.Branding?.PrimaryColor;
+            
+            // Validiere Hex-Color Format
+            if (!string.IsNullOrEmpty(color) && color.StartsWith("#") && color.Length == 7)
+            {
+                return color;
+            }
+        }
+        catch
+        {
+            // Ignore error, use default
+        }
+        
+        return "#007bff"; // Bootstrap default primary
+    }
+    
+    private string GetSecondaryColor()
+    {
+        try
+        {
+            var settings = SettingsCache.GetSettings();
+            var color = settings?.Branding?.SecondaryColor;
+            
+            // Validiere Hex-Color Format
+            if (!string.IsNullOrEmpty(color) && color.StartsWith("#") && color.Length == 7)
+            {
+                return color;
+            }
+        }
+        catch
+        {
+            // Ignore error, use default
+        }
+        
+        return "#6c757d"; // Bootstrap default secondary
+    }
+
     private string GetRgbValues(string hexColor)
     {
         if (string.IsNullOrEmpty(hexColor) || !hexColor.StartsWith("#") || hexColor.Length != 7)
@@ -80,5 +131,10 @@
         {
             return "108, 117, 125"; // Default gray
         }
+    }
+    
+    public void Dispose()
+    {
+        _refreshTimer?.Dispose();
     }
 }

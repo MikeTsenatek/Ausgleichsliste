@@ -46,6 +46,21 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddHttpContextAccessor();
 
 // Entity Framework Core Configuration
+builder.Services.AddDbContextFactory<AusgleichslisteDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+        ?? "Data Source=ausgleichsliste.db";
+    options.UseSqlite(connectionString);
+    
+    // Logging für Development
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+        options.LogTo(Console.WriteLine, LogLevel.Information);
+    }
+});
+
+// Auch normalen DbContext für andere Services registrieren
 builder.Services.AddDbContext<AusgleichslisteDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
@@ -67,7 +82,7 @@ builder.Services.AddScoped<ISettlementService, SettlementService>();
 builder.Services.AddScoped<ISettingsDatabaseService, SettingsDatabaseService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ILogoService, LogoService>();
-builder.Services.AddSingleton<ISettingsCacheService, SettingsCacheService>();
+builder.Services.AddScoped<ISettingsCacheService, SettingsCacheService>();
 
 var app = builder.Build();
 

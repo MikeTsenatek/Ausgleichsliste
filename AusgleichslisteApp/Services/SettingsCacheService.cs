@@ -17,7 +17,7 @@ namespace AusgleichslisteApp.Services
     public class SettingsCacheService : ISettingsCacheService
     {
         private readonly IOptionsMonitor<ApplicationSettings> _optionsMonitor;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly ISettingsDatabaseService _settingsDatabaseService;
         private readonly ILogger<SettingsCacheService> _logger;
         
         private ApplicationSettings? _cachedSettings;
@@ -30,11 +30,11 @@ namespace AusgleichslisteApp.Services
         
         public SettingsCacheService(
             IOptionsMonitor<ApplicationSettings> optionsMonitor,
-            IServiceProvider serviceProvider,
+            ISettingsDatabaseService settingsDatabaseService,
             ILogger<SettingsCacheService> logger)
         {
             _optionsMonitor = optionsMonitor;
-            _serviceProvider = serviceProvider;
+            _settingsDatabaseService = settingsDatabaseService;
             _logger = logger;
             
             // Initialer Cache-Load aus appsettings.json
@@ -49,10 +49,22 @@ namespace AusgleichslisteApp.Services
                 return _cachedSettings;
             }
             
-            // Versuche Cache zu aktualisieren (non-blocking)
-            if (!_isLoading)
+            // Wenn noch nie geladen oder zu alt, versuche sync zu laden
+            if (_cachedSettings == null || DateTime.UtcNow - _lastUpdate > _cacheLifetime)
             {
-                _ = Task.Run(RefreshSettingsAsync);
+                if (!_isLoading)
+                {
+                    // Versuche synchronen Load für bessere UX
+                    try
+                    {
+                        RefreshSettingsAsync().Wait(TimeSpan.FromSeconds(2));
+                    }
+                    catch
+                    {
+                        // Falls sync load fehlschlägt, starte async
+                        _ = Task.Run(RefreshSettingsAsync);
+                    }
+                }
             }
             
             // Fallback auf aktuellen Cache oder appsettings.json
@@ -71,9 +83,6 @@ namespace AusgleichslisteApp.Services
             
             try
             {
-                using var scope = _serviceProvider.CreateScope();
-                var dbService = scope.ServiceProvider.GetRequiredService<ISettingsDatabaseService>();
-                
                 // Lade Base-Settings aus appsettings.json
                 var baseSettings = _optionsMonitor.CurrentValue;
                 var newSettings = new ApplicationSettings
@@ -97,7 +106,7 @@ namespace AusgleichslisteApp.Services
                 // Überschreibe mit Datenbank-Werten
                 try
                 {
-                    var dbBrandingSettings = await dbService.GetSettingsByCategoryAsync("Branding");
+                    var dbBrandingSettings = await _settingsDatabaseService.GetSettingsByCategoryAsync("Branding");
                     foreach (var kvp in dbBrandingSettings)
                     {
                         switch (kvp.Key)
@@ -129,7 +138,7 @@ namespace AusgleichslisteApp.Services
                     }
                     
                     // Handle other ApplicationSettings if needed
-                    var dbGeneralSettings = await dbService.GetSettingsByCategoryAsync("General");
+                    var dbGeneralSettings = await _settingsDatabaseService.GetSettingsByCategoryAsync("General");
                     foreach (var kvp in dbGeneralSettings)
                     {
                         switch (kvp.Key)

@@ -51,16 +51,16 @@ namespace AusgleichslisteApp.Services
     /// </summary>
     public class SettingsDatabaseService : ISettingsDatabaseService
     {
-        private readonly AusgleichslisteDbContext _context;
+        private readonly IDbContextFactory<AusgleichslisteDbContext> _contextFactory;
         private readonly IOptionsMonitor<ApplicationSettings> _optionsMonitor;
         private readonly ILogger<SettingsDatabaseService> _logger;
         
         public SettingsDatabaseService(
-            AusgleichslisteDbContext context,
+            IDbContextFactory<AusgleichslisteDbContext> contextFactory,
             IOptionsMonitor<ApplicationSettings> optionsMonitor,
             ILogger<SettingsDatabaseService> logger)
         {
-            _context = context;
+            _contextFactory = contextFactory;
             _optionsMonitor = optionsMonitor;
             _logger = logger;
         }
@@ -69,7 +69,8 @@ namespace AusgleichslisteApp.Services
         {
             try
             {
-                var setting = await _context.ApplicationSettings
+                using var context = await _contextFactory.CreateDbContextAsync();
+                var setting = await context.ApplicationSettings
                     .FirstOrDefaultAsync(s => s.Key == key && s.Category == category);
                 
                 return setting?.Value;
@@ -85,7 +86,8 @@ namespace AusgleichslisteApp.Services
         {
             try
             {
-                var existingSetting = await _context.ApplicationSettings
+                using var context = await _contextFactory.CreateDbContextAsync();
+                var existingSetting = await context.ApplicationSettings
                     .FirstOrDefaultAsync(s => s.Key == key && s.Category == category);
                 
                 if (existingSetting != null)
@@ -98,10 +100,10 @@ namespace AusgleichslisteApp.Services
                 else
                 {
                     var newSetting = new ConfigurationEntry(key, value, category, description);
-                    _context.ApplicationSettings.Add(newSetting);
+                    context.ApplicationSettings.Add(newSetting);
                 }
                 
-                await _context.SaveChangesAsync();
+                await context.SaveChangesAsync();
                 _logger.LogInformation("Setting {Key}/{Category} erfolgreich gespeichert", key, category);
             }
             catch (Exception ex)
@@ -115,7 +117,8 @@ namespace AusgleichslisteApp.Services
         {
             try
             {
-                var settings = await _context.ApplicationSettings
+                using var context = await _contextFactory.CreateDbContextAsync();
+                var settings = await context.ApplicationSettings
                     .Where(s => s.Category == category)
                     .ToDictionaryAsync(s => s.Key, s => s.Value);
                 
@@ -132,13 +135,14 @@ namespace AusgleichslisteApp.Services
         {
             try
             {
-                var setting = await _context.ApplicationSettings
+                using var context = await _contextFactory.CreateDbContextAsync();
+                var setting = await context.ApplicationSettings
                     .FirstOrDefaultAsync(s => s.Key == key && s.Category == category);
                 
                 if (setting != null)
                 {
-                    _context.ApplicationSettings.Remove(setting);
-                    await _context.SaveChangesAsync();
+                    context.ApplicationSettings.Remove(setting);
+                    await context.SaveChangesAsync();
                     _logger.LogInformation("Setting {Key}/{Category} erfolgreich gelöscht", key, category);
                 }
             }
