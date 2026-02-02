@@ -16,6 +16,7 @@ namespace AusgleichslisteApp.Services
         Task<User?> GetUserByIdAsync(string id);
         Task AddUserAsync(User user);
         Task UpdateUserAsync(User user);
+        Task UpdateUserPaymentMethodAsync(string userId, string? paymentMethod);
         Task DeleteUserAsync(string id);
         Task AddBookingAsync(Booking booking);
         Task DeleteBookingAsync(Guid id);

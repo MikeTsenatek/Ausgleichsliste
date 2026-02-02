@@ -76,6 +76,7 @@
                                     <thead>
                                         <tr>
                                             <th>Name</th>
+                                            <th>Zahlungsart</th>
                                             <th>Saldo</th>
                                             <th>Erstellt</th>
                                             <th>Aktionen</th>
@@ -93,6 +94,35 @@
                                                     @if (user.Name != user.InitialName)
                                                     {
                                                         <small class="text-muted">(urspr. @user.InitialName)</small>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (editingPaymentMethodUserId == user.Id)
+                                                    {
+                                                        <div class="d-flex gap-1">
+                                                            <input type="text" class="form-control form-control-sm" @bind="editPaymentMethodValue" 
+                                                                   placeholder="z.B. PayPal: max@example.com, IBAN: DE89..., Bar" maxlength="500" />
+                                                            <button class="btn btn-sm btn-success" @onclick="() => SavePaymentMethod(user.Id)">💾</button>
+                                                            <button class="btn btn-sm btn-secondary" @onclick="CancelEditPaymentMethod">❌</button>
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="d-flex align-items-center justify-content-between">
+                                                            <div>
+                                                                @if (!string.IsNullOrEmpty(user.PaymentMethod))
+                                                                {
+                                                                    <span class="text-muted">@user.PaymentMethod</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <small class="text-muted">Nicht angegeben</small>
+                                                                }
+                                                            </div>
+                                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => StartEditPaymentMethod(user.Id, user.PaymentMethod)">
+                                                                ✏️
+                                                            </button>
+                                                        </div>
                                                     }
                                                 </td>
                                                 <td>
@@ -170,6 +200,10 @@
     private string successMessage = string.Empty;
     private string errorMessage = string.Empty;
     
+    // PaymentMethod editing
+    private string? editingPaymentMethodUserId = null;
+    private string editPaymentMethodValue = string.Empty;
+    
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
@@ -224,7 +258,8 @@
         {
             var newUser = new User(
                 id: newUserRequest.Name.ToUpper(), 
-                name: newUserRequest.Name.ToUpper()
+                name: newUserRequest.Name.ToUpper(),
+                paymentMethod: null
             );
             
             await DataService.AddUserAsync(newUser);
@@ -271,6 +306,45 @@
         catch (Exception ex)
         {
             errorMessage = $"Fehler beim Entfernen des Benutzers: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+    
+    private void StartEditPaymentMethod(string userId, string? currentPaymentMethod)
+    {
+        editingPaymentMethodUserId = userId;
+        editPaymentMethodValue = currentPaymentMethod ?? string.Empty;
+        StateHasChanged();
+    }
+    
+    private void CancelEditPaymentMethod()
+    {
+        editingPaymentMethodUserId = null;
+        editPaymentMethodValue = string.Empty;
+        StateHasChanged();
+    }
+    
+    private async Task SavePaymentMethod(string userId)
+    {
+        try
+        {
+            isProcessing = true;
+            StateHasChanged();
+            
+            await DataService.UpdateUserPaymentMethodAsync(userId, editPaymentMethodValue?.Trim());
+            await LoadData();
+            
+            editingPaymentMethodUserId = null;
+            editPaymentMethodValue = string.Empty;
+            successMessage = "Zahlungsmethode wurde erfolgreich aktualisiert.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Fehler beim Aktualisieren der Zahlungsmethode: {ex.Message}";
         }
         finally
         {

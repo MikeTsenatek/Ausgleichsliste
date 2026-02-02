@@ -98,6 +98,18 @@
                     </NavLink>
                 </li>
                 
+                <!-- Profile link for all authenticated users -->
+                <AuthorizeView>
+                    <Authorized>
+                        <li class="mobile-nav-item">
+                            <NavLink href="profil" class="mobile-nav-link">
+                                <i class="fas fa-user-circle me-1"></i>
+                                Profil
+                            </NavLink>
+                        </li>
+                    </Authorized>
+                </AuthorizeView>
+                
                 <!-- Admin-only mobile links -->
                 <AuthorizeView Roles="Admin">
                     <Authorized>

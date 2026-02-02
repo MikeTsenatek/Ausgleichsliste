@@ -56,6 +56,7 @@ namespace AusgleichslisteApp.Models
     public class AddUserRequest
     {
         public string Name { get; set; } = string.Empty;
+        public string? PaymentMethod { get; set; }
         
         public bool IsValid()
         {

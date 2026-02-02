@@ -60,19 +60,11 @@ builder.Services.AddDbContextFactory<AusgleichslisteDbContext>(options =>
     }
 });
 
-// Auch normalen DbContext für andere Services registrieren
-builder.Services.AddDbContext<AusgleichslisteDbContext>(options =>
+// Normaler DbContext für andere Services - aber erst bei Bedarf registriert
+builder.Services.AddScoped<AusgleichslisteDbContext>(provider =>
 {
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-        ?? "Data Source=ausgleichsliste.db";
-    options.UseSqlite(connectionString);
-    
-    // Logging für Development
-    if (builder.Environment.IsDevelopment())
-    {
-        options.EnableSensitiveDataLogging();
-        options.LogTo(Console.WriteLine, LogLevel.Information);
-    }
+    var factory = provider.GetRequiredService<IDbContextFactory<AusgleichslisteDbContext>>();
+    return factory.CreateDbContext();
 });
 
 // Registriere unsere Services
@@ -80,7 +72,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDataService, EfDataService>();
 builder.Services.AddScoped<ISettlementService, SettlementService>();
 builder.Services.AddScoped<ISettingsDatabaseService, SettingsDatabaseService>();
-builder.Services.AddScoped<ISettingsService, SettingsService>();
+builder.Services.AddSingleton<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ILogoService, LogoService>();
 builder.Services.AddScoped<ISettingsCacheService, SettingsCacheService>();
 
@@ -89,19 +81,18 @@ var app = builder.Build();
 // Automatische Datenbank-Migration und Initialisierung
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<AusgleichslisteDbContext>();
+    var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AusgleichslisteDbContext>>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    var settingsCache = app.Services.GetRequiredService<ISettingsCacheService>();
     
     try
     {
-        // Erstelle/Migriere Datenbank
-        await context.Database.EnsureCreatedAsync();
-        logger.LogInformation("Datenbank erfolgreich initialisiert");
+        using var context = contextFactory.CreateDbContext();
         
-        // Lade Settings-Cache
-        await settingsCache.RefreshSettingsAsync();
-        logger.LogInformation("Settings-Cache initialisiert");
+        // Führe alle ausstehenden Migrationen aus
+        await context.Database.MigrateAsync();
+        logger.LogInformation("Datenbank-Migrationen erfolgreich angewandt");
+        
+        logger.LogInformation("Anwendung bereit - Settings werden bei Bedarf geladen");
     }
     catch (Exception ex)
     {

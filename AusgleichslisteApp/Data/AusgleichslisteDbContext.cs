@@ -29,6 +29,7 @@ namespace AusgleichslisteApp.Data
                 entity.Property(e => e.Id).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.InitialName).HasMaxLength(200);
+                entity.Property(e => e.PaymentMethod).HasMaxLength(500).IsRequired(false);
                 entity.Property(e => e.CreatedAt).IsRequired();
                 entity.Property(e => e.IsActive).IsRequired();
                 

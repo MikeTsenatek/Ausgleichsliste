@@ -234,6 +234,31 @@ namespace AusgleichslisteApp.Services
             }
         }
         
+        public async Task UpdateUserPaymentMethodAsync(string userId, string? paymentMethod)
+        {
+            try
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user != null)
+                {
+                    user.PaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? null : paymentMethod.Trim();
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Zahlungsmethode aktualisiert für Benutzer: {UserName} (ID: {UserId}) - PaymentMethod: {PaymentMethod}", 
+                        user.Name, user.Id, user.PaymentMethod ?? "null");
+                }
+                else
+                {
+                    _logger.LogWarning("Benutzer nicht gefunden für PaymentMethod-Update: ID {UserId}", userId);
+                    throw new ArgumentException($"Benutzer mit ID {userId} wurde nicht gefunden.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Aktualisieren der Zahlungsmethode für Benutzer: {UserId}", userId);
+                throw;
+            }
+        }
+        
         public async Task DeleteUserAsync(string id)
         {
             try
