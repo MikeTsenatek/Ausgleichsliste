@@ -92,6 +92,74 @@ namespace AusgleichslisteApp.Services
             }
         }
         
+        public async Task<List<Booking>> GetFilteredBookingsAsync(string? searchText = null, string? payerId = null, string? beneficiaryId = null, DateTime? dateFrom = null, DateTime? dateTo = null, bool includeDeleted = false)
+        {
+            try
+            {
+                var query = _context.Bookings.AsQueryable();
+                
+                // Gelöschte Buchungen einschließen oder ausschließen
+                if (!includeDeleted)
+                {
+                    query = query.Where(b => !b.IsDeleted);
+                }
+                
+                // Textsuche in Article
+                if (!string.IsNullOrWhiteSpace(searchText))
+                {
+                    var searchLower = searchText.ToLower();
+                    query = query.Where(b => b.Article.ToLower().Contains(searchLower));
+                }
+                
+                // Filter nach Zahler
+                if (!string.IsNullOrWhiteSpace(payerId))
+                {
+                    query = query.Where(b => b.PayerId == payerId);
+                }
+                
+                // Filter nach Empfänger
+                if (!string.IsNullOrWhiteSpace(beneficiaryId))
+                {
+                    query = query.Where(b => b.BeneficiaryId == beneficiaryId);
+                }
+                
+                // Filter nach Datum von
+                if (dateFrom.HasValue)
+                {
+                    query = query.Where(b => b.Date.Date >= dateFrom.Value.Date);
+                }
+                
+                // Filter nach Datum bis
+                if (dateTo.HasValue)
+                {
+                    query = query.Where(b => b.Date.Date <= dateTo.Value.Date);
+                }
+                
+                var bookings = await query
+                    .OrderByDescending(b => b.Date)
+                    .ThenByDescending(b => b.CreatedAt)
+                    .ToListAsync();
+                
+                // Lade Users separat für Navigation Properties
+                var users = await _context.Users.ToListAsync();
+                var userMap = users.ToDictionary(u => u.Id, u => u);
+                
+                // Setze Navigation Properties manuell
+                foreach (var booking in bookings)
+                {
+                    booking.Payer = userMap.GetValueOrDefault(booking.PayerId);
+                    booking.Beneficiary = userMap.GetValueOrDefault(booking.BeneficiaryId);
+                }
+                
+                return bookings;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Laden der gefilterten Buchungen");
+                throw;
+            }
+        }
+        
         public async Task SaveUsersAsync(List<User> users)
         {
             try

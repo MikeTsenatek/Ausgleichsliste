@@ -6,6 +6,7 @@
 @inject IJSRuntime JSRuntime
 @inject ISettingsService SettingsService
 @rendermode InteractiveServer
+@implements IDisposable
 
 <PageTitle>Buchungen verwalten - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
 
@@ -15,6 +16,98 @@
             <h1 class="mb-4">
                 Buchungen verwalten
             </h1>
+        </div>
+    </div>
+    
+    <!-- Such- und Filterbereich -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        Suchen & Filtern
+                    </h6>
+                    <button class="btn btn-outline-light btn-sm" @onclick="ToggleSearchPanel">
+                        @if (showSearchPanel)
+                        {
+                            <span>Zuklappen</span>
+                        }
+                        else
+                        {
+                            <span>Erweitern</span>
+                        }
+                    </button>
+                </div>
+                @if (showSearchPanel)
+                {
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <!-- Textsuche -->
+                            <div class="col-md-4">
+                                <label class="form-label">Text suchen</label>
+                                <input type="text" class="form-control" @bind="searchText" @oninput="OnSearchChanged" placeholder="Artikel/Beschreibung..." />
+                            </div>
+                            
+                            <!-- Zahler Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label">Zahler</label>
+                                <select class="form-select" @bind="filterPayerId" @bind:after="OnFilterChanged">
+                                    <option value="">Alle Zahler</option>
+                                    @if (users != null)
+                                    {
+                                        @foreach (var user in users)
+                                        {
+                                            <option value="@user.Id">@user.Name</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            
+                            <!-- Empfänger Filter -->
+                            <div class="col-md-2">
+                                <label class="form-label">Empfänger</label>
+                                <select class="form-select" @bind="filterBeneficiaryId" @bind:after="OnFilterChanged">
+                                    <option value="">Alle Empfänger</option>
+                                    @if (users != null)
+                                    {
+                                        @foreach (var user in users)
+                                        {
+                                            <option value="@user.Id">@user.Name</option>
+                                        }
+                                    }
+                                </select>
+                            </div>
+                            
+                            <!-- Datum Von -->
+                            <div class="col-md-2">
+                                <label class="form-label">Datum von</label>
+                                <input type="date" class="form-control" @bind="filterDateFrom" @bind:after="OnFilterChanged" />
+                            </div>
+                            
+                            <!-- Datum Bis -->
+                            <div class="col-md-2">
+                                <label class="form-label">Datum bis</label>
+                                <input type="date" class="form-control" @bind="filterDateTo" @bind:after="OnFilterChanged" />
+                            </div>
+                        </div>
+                        
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <button class="btn btn-outline-secondary btn-sm me-2" @onclick="ClearFilters">
+                                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="me-1">
+                                        <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z"/>
+                                    </svg>
+                                    Filter zurücksetzen
+                                </button>
+                                @if (hasActiveFilters)
+                                {
+                                    <span class="badge bg-info">Filter aktiv</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
         </div>
     </div>
     
@@ -104,7 +197,14 @@
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
-                            Alle Buchungen (@(bookings?.Count ?? 0))
+                            @if (hasActiveFilters)
+                            {
+                                <span>Gefilterte Buchungen (@(filteredBookings?.Count ?? 0) von @(allBookings?.Count ?? 0))</span>
+                            }
+                            else
+                            {
+                                <span>Alle Buchungen (@(filteredBookings?.Count ?? 0))</span>
+                            }
                         </h5>
                         <div>
                             <button class="btn btn-outline-light btn-sm me-2" @onclick="ToggleDeleted">
@@ -130,12 +230,12 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        @if (bookings?.Any() == true)
+                        @if (filteredBookings?.Any() == true)
                         {
-                            var filteredBookings = showOnlySettlements ? 
-                                bookings.Where(b => b.IsSettlement).ToList() : bookings.ToList();
+                            var displayBookings = showOnlySettlements ? 
+                                filteredBookings.Where(b => b.IsSettlement).ToList() : filteredBookings.ToList();
                             
-                            var sortedBookings = filteredBookings.OrderByDescending(b => b.Date).ThenByDescending(b => b.CreatedAt).ToList();
+                            var sortedBookings = displayBookings.OrderByDescending(b => b.Date).ThenByDescending(b => b.CreatedAt).ToList();
                             var totalItems = sortedBookings.Count;
                             var totalPages = (int)Math.Ceiling((double)totalItems / itemsPerPage);
                             var pagedBookings = sortedBookings.Skip((currentPage - 1) * itemsPerPage).Take(itemsPerPage);
@@ -294,7 +394,8 @@
 
 @code {
     private List<User>? users;
-    private List<Booking>? bookings;
+    private List<Booking>? allBookings = new(); // Alle Buchungen ungefiltert
+    private List<Booking>? filteredBookings = new(); // Gefilterte Buchungen
     private AddBookingRequest newBookingRequest = new();
     private bool isLoading = true;
     private bool isProcessing = false;
@@ -305,9 +406,25 @@
     private string errorMessage = string.Empty;
     private Booking? bookingToDelete;
     
+    // Such- und Filtervariablen
+    private bool showSearchPanel = false;
+    private string searchText = string.Empty;
+    private string filterPayerId = string.Empty;
+    private string filterBeneficiaryId = string.Empty;
+    private DateTime? filterDateFrom = null;
+    private DateTime? filterDateTo = null;
+    private System.Timers.Timer? searchTimer;
+    
     // Pagination
     private int currentPage = 1;
     private int itemsPerPage = 100;
+    
+    // Such- und Filterfunktionalität
+    private bool hasActiveFilters => !string.IsNullOrWhiteSpace(searchText) ||
+                                   !string.IsNullOrWhiteSpace(filterPayerId) ||
+                                   !string.IsNullOrWhiteSpace(filterBeneficiaryId) ||
+                                   filterDateFrom.HasValue ||
+                                   filterDateTo.HasValue;
     
     protected override async Task OnInitializedAsync()
     {
@@ -325,20 +442,23 @@
             // Lade Buchungen basierend auf showDeleted Flag
             if (showDeleted)
             {
-                bookings = await DataService.GetAllBookingsIncludingDeletedAsync();
+                allBookings = await DataService.GetAllBookingsIncludingDeletedAsync();
             }
             else
             {
-                bookings = await DataService.GetBookingsAsync();
+                allBookings = await DataService.GetBookingsAsync();
             }
             
             // Setze Navigation Properties für bessere Anzeige
             var userMap = users.ToDictionary(u => u.Id, u => u);
-            foreach (var booking in bookings)
+            foreach (var booking in allBookings)
             {
                 booking.Payer = userMap.GetValueOrDefault(booking.PayerId);
                 booking.Beneficiary = userMap.GetValueOrDefault(booking.BeneficiaryId);
             }
+            
+            // Wende Filter an
+            await ApplyFilters();
         }
         catch (Exception ex)
         {
@@ -461,6 +581,101 @@
     {
         currentPage = page;
         StateHasChanged();
+    }
+    
+    private void ToggleSearchPanel()
+    {
+        showSearchPanel = !showSearchPanel;
+        StateHasChanged();
+    }
+    
+    private async Task OnSearchChanged(ChangeEventArgs e)
+    {
+        searchText = e.Value?.ToString() ?? string.Empty;
+        
+        // Debounce: Warte 500ms nach der letzten Eingabe
+        searchTimer?.Stop();
+        searchTimer = new System.Timers.Timer(500);
+        searchTimer.Elapsed += async (sender, e) =>
+        {
+            await InvokeAsync(async () =>
+            {
+                await ApplyFilters();
+                StateHasChanged();
+            });
+        };
+        searchTimer.AutoReset = false;
+        searchTimer.Start();
+    }
+    
+    private async Task OnFilterChanged()
+    {
+        currentPage = 1; // Reset to first page when filtering
+        await ApplyFilters();
+        StateHasChanged();
+    }
+    
+    private async Task ApplyFilters()
+    {
+        if (allBookings == null || !allBookings.Any())
+        {
+            filteredBookings = new List<Booking>();
+            return;
+        }
+        
+        var query = allBookings.AsQueryable();
+        
+        // Textsuche in Article
+        if (!string.IsNullOrWhiteSpace(searchText))
+        {
+            var searchLower = searchText.ToLower();
+            query = query.Where(b => b.Article.ToLower().Contains(searchLower));
+        }
+        
+        // Filter nach Zahler
+        if (!string.IsNullOrWhiteSpace(filterPayerId))
+        {
+            query = query.Where(b => b.PayerId == filterPayerId);
+        }
+        
+        // Filter nach Empfänger
+        if (!string.IsNullOrWhiteSpace(filterBeneficiaryId))
+        {
+            query = query.Where(b => b.BeneficiaryId == filterBeneficiaryId);
+        }
+        
+        // Filter nach Datum von
+        if (filterDateFrom.HasValue)
+        {
+            query = query.Where(b => b.Date.Date >= filterDateFrom.Value.Date);
+        }
+        
+        // Filter nach Datum bis
+        if (filterDateTo.HasValue)
+        {
+            query = query.Where(b => b.Date.Date <= filterDateTo.Value.Date);
+        }
+        
+        filteredBookings = query.ToList();
+    }
+    
+    private async Task ClearFilters()
+    {
+        searchText = string.Empty;
+        filterPayerId = string.Empty;
+        filterBeneficiaryId = string.Empty;
+        filterDateFrom = null;
+        filterDateTo = null;
+        currentPage = 1;
+        
+        await ApplyFilters();
+        StateHasChanged();
+    }
+    
+    public void Dispose()
+    {
+        searchTimer?.Stop();
+        searchTimer?.Dispose();
     }
 }
 </div>
