@@ -47,7 +47,11 @@ namespace AusgleichslisteApp.Models
     {
         public string UserId { get; set; } = string.Empty;
         public string UserName { get; set; } = string.Empty;
-        public decimal Amount { get; set; }        public string Comment { get; set; } = string.Empty;        public bool IsSelected { get; set; }
+        public decimal Amount { get; set; }
+        public string AmountInput { get; set; } = string.Empty; // Für Berechnung
+        public string AmountError { get; set; } = string.Empty; // Für Fehlerausgabe
+        public string Comment { get; set; } = string.Empty;        
+        public bool IsSelected { get; set; }
     }
     
     /// <summary>

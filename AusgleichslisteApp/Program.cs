@@ -75,6 +75,7 @@ builder.Services.AddScoped<ISettingsDatabaseService, SettingsDatabaseService>();
 builder.Services.AddSingleton<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ILogoService, LogoService>();
 builder.Services.AddScoped<ISettingsCacheService, SettingsCacheService>();
+builder.Services.AddScoped<IExpressionCalculatorService, ExpressionCalculatorService>();
 
 var app = builder.Build();
 

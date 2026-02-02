@@ -8,7 +8,9 @@ namespace AusgleichslisteApp.Models
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = string.Empty;
         public string InitialName { get; set; } = string.Empty;
-        public string? PaymentMethod { get; set; }
+        public string? PaymentMethod { get; set; } // Legacy field for backwards compatibility
+        public string? PayPalAddress { get; set; } // PayPal Email/Username
+        public string? WeroAddress { get; set; } // Wero/SEPA instant transfer
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public bool IsActive { get; set; } = true;
         

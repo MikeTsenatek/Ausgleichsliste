@@ -5,6 +5,7 @@
 @inject ISettlementService SettlementService
 @inject IJSRuntime JSRuntime
 @inject ISettingsService SettingsService
+@inject IExpressionCalculatorService CalculatorService
 @rendermode InteractiveServer
 @implements IDisposable
 
@@ -172,7 +173,28 @@
                             
                             <div class="mb-3">
                                 <label class="form-label">Betrag (€)</label>
-                                <InputNumber @bind-Value="newBookingRequest.Amount" class="form-control" step="0.01" min="0.01" />
+                                <div class="input-group">
+                                    <input type="text" class="form-control" 
+                                           @bind="amountInput" 
+                                           @bind:event="oninput"
+                                           @onblur="() => CalculateAmount()" 
+                                           placeholder="z.B. 10 + 5 oder (100 - 20) / 2"
+                                           title="Geben Sie eine Zahl oder einen Ausdruck ein: z.B. 10+5, 20*2, (50-10)/4" />
+                                    @if (!string.IsNullOrEmpty(amountInput))
+                                    {
+                                        <button class="btn btn-outline-secondary" type="button" @onclick="() => { amountInput = string.Empty; newBookingRequest.Amount = 0; }">
+                                            ✕
+                                        </button>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrEmpty(amountError))
+                                {
+                                    <small class="text-danger d-block mt-1">@amountError</small>
+                                }
+                                @if (!string.IsNullOrEmpty(amountInput) && string.IsNullOrEmpty(amountError) && newBookingRequest.Amount > 0)
+                                {
+                                    <small class="text-success d-block mt-1">✓ Betrag: @newBookingRequest.Amount.ToString("F2") €</small>
+                                }
                             </div>
                             
                             @if (!string.IsNullOrEmpty(validationMessage))
@@ -406,6 +428,10 @@
     private string errorMessage = string.Empty;
     private Booking? bookingToDelete;
     
+    // Amount Input mit Berechnung
+    private string amountInput = string.Empty;
+    private string amountError = string.Empty;
+    
     // Such- und Filtervariablen
     private bool showSearchPanel = false;
     private string searchText = string.Empty;
@@ -471,6 +497,38 @@
         }
     }
     
+    
+    private void CalculateAmount()
+    {
+        amountError = string.Empty;
+        
+        if (string.IsNullOrWhiteSpace(amountInput))
+        {
+            newBookingRequest.Amount = 0;
+            return;
+        }
+        
+        if (CalculatorService.TryCalculate(amountInput, out var result, out var error))
+        {
+            if (result > 0)
+            {
+                newBookingRequest.Amount = result;
+            }
+            else
+            {
+                amountError = "Betrag muss größer als 0 sein.";
+                newBookingRequest.Amount = 0;
+            }
+        }
+        else
+        {
+            amountError = error;
+            newBookingRequest.Amount = 0;
+        }
+        
+        StateHasChanged();
+    }
+    
     private async Task AddBooking()
     {
         validationMessage = string.Empty;
@@ -500,6 +558,8 @@
             
             // Reset form
             newBookingRequest = new AddBookingRequest { Date = DateTime.Now };
+            amountInput = string.Empty;
+            amountError = string.Empty;
             successMessage = $"Buchung '{booking.Article}' wurde erfolgreich hinzugefügt.";
         }
         catch (Exception ex)

@@ -3,6 +3,7 @@
 @using AusgleichslisteApp.Services
 @inject IDataService DataService
 @inject ISettingsService SettingsService
+@inject IExpressionCalculatorService CalculatorService
 @rendermode InteractiveServer
 
 <PageTitle>Sammel-Buchung - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
@@ -162,10 +163,17 @@
                                                 <td>
                                                     @if (personAmount.IsSelected)
                                                     {
-                                                        <input type="number" class="form-control form-control-sm" 
-                                                               @bind="personAmount.Amount" 
-                                                               @bind:after="StateHasChanged"
-                                                               step="0.01" min="0" />
+                                                        <input type="text" class="form-control form-control-sm" 
+                                                               @bind="personAmount.AmountInput" 
+                                                               @bind:event="oninput"
+                                                               @onblur="() => CalculatePersonAmount(personAmount)"
+                                                               step="0.01" min="0"
+                                                               placeholder="z.B. 10+5"
+                                                               title="Geben Sie eine Zahl oder einen Ausdruck ein: z.B. 10+5, 20*2, (50-10)/4" />
+                                                        @if (!string.IsNullOrEmpty(personAmount.AmountError))
+                                                        {
+                                                            <small class="text-danger d-block">@personAmount.AmountError</small>
+                                                        }
                                                     }
                                                     else
                                                     {
@@ -335,7 +343,43 @@
         foreach (var person in selectedPersons)
         {
             person.Amount = Math.Round(amountPerPerson, 2);
+            person.AmountInput = person.Amount.ToString("F2");
+            person.AmountError = string.Empty;
         }
+        StateHasChanged();
+    }
+    
+    private void CalculatePersonAmount(PersonAmount personAmount)
+    {
+        personAmount.AmountError = string.Empty;
+        
+        if (string.IsNullOrWhiteSpace(personAmount.AmountInput))
+        {
+            personAmount.Amount = 0;
+            personAmount.AmountError = string.Empty;
+            StateHasChanged();
+            return;
+        }
+        
+        if (CalculatorService.TryCalculate(personAmount.AmountInput, out var result, out var error))
+        {
+            if (result > 0)
+            {
+                personAmount.Amount = result;
+                personAmount.AmountError = string.Empty;
+            }
+            else
+            {
+                personAmount.AmountError = "Betrag muss > 0 sein";
+                personAmount.Amount = 0;
+            }
+        }
+        else
+        {
+            personAmount.AmountError = error;
+            personAmount.Amount = 0;
+        }
+        
         StateHasChanged();
     }
     

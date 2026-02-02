@@ -44,59 +44,18 @@
                         {
                             @foreach (var balance in balances)
                             {
-                                <div class="row mb-2 align-items-center">
-                                    <div class="col-4">
-                                        <strong>@balance.User?.Name</strong>
-                                        @if (editingPaymentMethodUserId == balance.User?.Id)
-                                        {
-                                            <br>
-                                            <div class="input-group input-group-sm mt-1">
-                                                <input type="text" class="form-control form-control-sm" 
-                                                       @bind="editPaymentMethodValue" 
-                                                       placeholder="z.B. PayPal, IBAN, Bar" 
-                                                       disabled="@isProcessing" />
-                                                <button class="btn btn-success btn-sm" 
-                                                        @onclick="() => SavePaymentMethod(balance.User!.Id)"
-                                                        disabled="@isProcessing">
-                                                    @if (isProcessing)
-                                                    {
-                                                        <span class="spinner-border spinner-border-sm"></span>
-                                                    }
-                                                    else
-                                                    {
-                                                        @("💾")
-                                                    }
-                                                </button>
-                                                <button class="btn btn-secondary btn-sm" 
-                                                        @onclick="CancelEditPaymentMethod"
-                                                        disabled="@isProcessing">
-                                                    ❌
-                                                </button>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <br>
-                                            <div class="d-flex align-items-center">
-                                                <small class="text-muted me-2">
-                                                    @if (!string.IsNullOrEmpty(balance.User?.PaymentMethod))
-                                                    {
-                                                        @balance.User.PaymentMethod
-                                                    }
-                                                    else
-                                                    {
-                                                        @("Keine Zahlungsmethode")
-                                                    }
-                                                </small>
-                                                <button class="btn btn-outline-primary btn-sm" 
-                                                        @onclick="() => StartEditPaymentMethod(balance.User!.Id, balance.User?.PaymentMethod)"
-                                                        disabled="@isProcessing">
-                                                    ✏️
-                                                </button>
-                                            </div>
-                                        }
+                                <div class="row mb-3 align-items-center border rounded p-2">
+                                    <div class="col-6">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <strong>@balance.User?.Name</strong>
+                                            <a href="@($"/user/{balance.User?.Id}/payment")" 
+                                               class="btn btn-outline-primary btn-sm"
+                                               title="Zahlungsinformationen und Schulden anzeigen">
+                                                💳 Info
+                                            </a>
+                                        </div>
                                     </div>
-                                    <div class="col-8">
+                                    <div class="col-6 text-end">
                                         @if (balance.NetBalance > 0)
                                         {
                                             <span class="badge bg-success fs-6">+@balance.NetBalance.ToString("F2") €</span>
@@ -142,14 +101,33 @@
                                             <strong>@settlement.Recipient?.Name</strong>
                                         </div>
                                         <small class="text-muted">Empfohlen: @settlement.Amount.ToString("F2") €</small>
-                                        @if (!string.IsNullOrEmpty(settlement.Recipient?.PaymentMethod))
+                                        @if (!string.IsNullOrEmpty(settlement.Recipient?.PayPalAddress) || !string.IsNullOrEmpty(settlement.Recipient?.WeroAddress))
                                         {
                                             <br>
-                                            <small class="text-primary">💳 @settlement.Recipient.PaymentMethod</small>
+                                            <small class="text-primary">
+                                                💳 
+                                                @if (!string.IsNullOrEmpty(settlement.Recipient?.PayPalAddress))
+                                                {
+                                                    <span>PayPal</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(settlement.Recipient?.WeroAddress))
+                                                {
+                                                    @if (!string.IsNullOrEmpty(settlement.Recipient?.PayPalAddress))
+                                                    {
+                                                        <span> / </span>
+                                                    }
+                                                    <span>Wero</span>
+                                                }
+                                            </small>
                                         }
                                     </div>
                                     <div class="col-5 text-end">
                                         <div class="d-flex gap-1 justify-content-end align-items-center">
+                                            <a href="@($"/user/{settlement.Recipient?.Id}/payment")" 
+                                               class="btn btn-outline-secondary btn-sm"
+                                               title="Zahlungsdaten anzeigen">
+                                                🔗
+                                            </a>
                                             <button class="btn btn-primary btn-sm" 
                                                     @onclick="() => ConfirmApplySingleSettlement(settlement)" 
                                                     disabled="@isProcessing">
@@ -240,10 +218,6 @@
     private bool isProcessing = false;
     private int processingSettlementId = -1;
     private Dictionary<int, decimal> customAmountSettlements = new();
-    
-    // PaymentMethod editing
-    private string? editingPaymentMethodUserId = null;
-    private string editPaymentMethodValue = string.Empty;
     
     protected override async Task OnInitializedAsync()
     {
@@ -378,45 +352,6 @@
         }
         
         await module.DisposeAsync();
-    }
-    
-    private void StartEditPaymentMethod(string userId, string? currentPaymentMethod)
-    {
-        editingPaymentMethodUserId = userId;
-        editPaymentMethodValue = currentPaymentMethod ?? string.Empty;
-        StateHasChanged();
-    }
-    
-    private void CancelEditPaymentMethod()
-    {
-        editingPaymentMethodUserId = null;
-        editPaymentMethodValue = string.Empty;
-        StateHasChanged();
-    }
-    
-    private async Task SavePaymentMethod(string userId)
-    {
-        try
-        {
-            isProcessing = true;
-            StateHasChanged();
-            
-            await DataService.UpdateUserPaymentMethodAsync(userId, editPaymentMethodValue?.Trim());
-            await RefreshData(); // Lade die Daten neu, um die Änderungen zu zeigen
-            
-            editingPaymentMethodUserId = null;
-            editPaymentMethodValue = string.Empty;
-        }
-        catch (Exception ex)
-        {
-            // Bei Fehler könnten wir hier eine Fehlermeldung anzeigen
-            Console.WriteLine($"Fehler beim Aktualisieren der Zahlungsmethode: {ex.Message}");
-        }
-        finally
-        {
-            isProcessing = false;
-            StateHasChanged();
-        }
     }
 }
 </div>
