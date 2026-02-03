@@ -17,6 +17,7 @@ namespace AusgleichslisteApp.Data
         public DbSet<Booking> Bookings { get; set; } = default!;
         public DbSet<Logo> Logos { get; set; } = default!;
         public DbSet<ConfigurationEntry> ApplicationSettings { get; set; } = default!;
+        public DbSet<Settlement> Settlements { get; set; } = default!;
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -105,6 +106,24 @@ namespace AusgleichslisteApp.Data
                 entity.HasIndex(e => new { e.Key, e.Category }).IsUnique();
                 entity.HasIndex(e => e.Category);
                 entity.HasIndex(e => e.UpdatedAt);
+            });
+
+            // Settlement Konfiguration
+            modelBuilder.Entity<Settlement>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).IsRequired();
+                entity.Property(e => e.PayerId).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.RecipientId).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Amount).IsRequired().HasColumnType("decimal(18,2)");
+                entity.Property(e => e.SuggestedDate).IsRequired();
+                entity.Property(e => e.IsActive).IsRequired();
+                
+                // Indizes für bessere Performance
+                entity.HasIndex(e => e.PayerId);
+                entity.HasIndex(e => e.RecipientId);
+                entity.HasIndex(e => e.IsActive);
+                entity.HasIndex(e => e.SuggestedDate);
             });
         }
     }

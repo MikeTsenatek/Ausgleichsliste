@@ -44,16 +44,9 @@
                         {
                             @foreach (var balance in balances)
                             {
-                                <div class="row mb-3 align-items-center border rounded p-2">
-                                    <div class="col-6">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <strong>@balance.User?.Name</strong>
-                                            <a href="@($"/user/{balance.User?.Id}/payment")" 
-                                               class="btn btn-outline-primary btn-sm"
-                                               title="Zahlungsinformationen und Schulden anzeigen">
-                                                💳 Info
-                                            </a>
-                                        </div>
+                                <div class="row mb-2 align-items-center">
+                                    <div class="col-4">
+                                        <strong>@balance.User?.Name</strong>
                                     </div>
                                     <div class="col-6 text-end">
                                         @if (balance.NetBalance > 0)
@@ -69,6 +62,14 @@
                                             <span class="badge bg-secondary fs-6">0.00 €</span>
                                         }
                                     </div>
+                                    <div class="col-2 text-end">
+                                        <button class="btn btn-outline-secondary btn-sm p-1" 
+                                                @onclick="() => OpenPaymentInfoDialog(balance.User?.Id ?? string.Empty)"
+                                                disabled="@isProcessing"
+                                                title="Zahlungsinformationen bearbeiten">
+                                            💳
+                                        </button>
+                                    </div>
                                 </div>
                             }
                         }
@@ -83,10 +84,17 @@
             <!-- Vorgeschlagene Ausgleichszahlungen -->
             <div class="col-lg-6 mb-4">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             Empfohlene Ausgleichszahlungen
                         </h5>
+                        <button class="btn btn-outline-light btn-sm" @onclick="RefreshSettlements" disabled="@isProcessing">
+                            @if (isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Neu berechnen
+                        </button>
                     </div>
                     <div class="card-body">
                         @if (settlements?.Any() == true)
@@ -94,40 +102,34 @@
                             @foreach (var settlement in settlements)
                             {
                                 <div class="row mb-3 align-items-center border rounded p-2">
-                                    <div class="col-7">
+                                    <div class="col-8">
                                         <div class="d-flex align-items-center">
                                             <strong>@settlement.Payer?.Name</strong> 
                                             <span class="text-muted mx-2">→</span>
                                             <strong>@settlement.Recipient?.Name</strong>
                                         </div>
                                         <small class="text-muted">Empfohlen: @settlement.Amount.ToString("F2") €</small>
-                                        @if (!string.IsNullOrEmpty(settlement.Recipient?.PayPalAddress) || !string.IsNullOrEmpty(settlement.Recipient?.WeroAddress))
+                                        @if (!string.IsNullOrEmpty(settlement.Recipient?.PayPalAddress))
                                         {
-                                            <br>
-                                            <small class="text-primary">
-                                                💳 
-                                                @if (!string.IsNullOrEmpty(settlement.Recipient?.PayPalAddress))
-                                                {
-                                                    <span>PayPal</span>
-                                                }
-                                                @if (!string.IsNullOrEmpty(settlement.Recipient?.WeroAddress))
-                                                {
-                                                    @if (!string.IsNullOrEmpty(settlement.Recipient?.PayPalAddress))
-                                                    {
-                                                        <span> / </span>
-                                                    }
-                                                    <span>Wero</span>
-                                                }
-                                            </small>
+                                            <div class="mt-1">
+                                                <small class="text-primary fw-bold">PayPal: @settlement.Recipient.PayPalAddress</small>
+                                            </div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(settlement.Recipient?.WeroAddress))
+                                        {
+                                            <div class="mt-1">
+                                                <small class="text-success fw-bold">Wero: @settlement.Recipient.WeroAddress</small>
+                                            </div>
+                                        }
+                                        @if (string.IsNullOrEmpty(settlement.Recipient?.PayPalAddress) && string.IsNullOrEmpty(settlement.Recipient?.WeroAddress))
+                                        {
+                                            <div class="mt-1">
+                                                <small class="text-muted">Keine Zahlungsinformationen</small>
+                                            </div>
                                         }
                                     </div>
-                                    <div class="col-5 text-end">
+                                    <div class="col-4 text-end">
                                         <div class="d-flex gap-1 justify-content-end align-items-center">
-                                            <a href="@($"/user/{settlement.Recipient?.Id}/payment")" 
-                                               class="btn btn-outline-secondary btn-sm"
-                                               title="Zahlungsdaten anzeigen">
-                                                🔗
-                                            </a>
                                             <button class="btn btn-primary btn-sm" 
                                                     @onclick="() => ConfirmApplySingleSettlement(settlement)" 
                                                     disabled="@isProcessing">
@@ -211,6 +213,59 @@
         </div>
     }
 
+@* Payment Info Dialog *@
+@if (showPaymentInfoDialog)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Zahlungsinformationen bearbeiten</h5>
+                    <button type="button" class="btn-close" @onclick="ClosePaymentInfoDialog" disabled="@isProcessing"></button>
+                </div>
+                <div class="modal-body">
+                    @if (!string.IsNullOrEmpty(editingUserName))
+                    {
+                        <h6>Benutzer: @editingUserName</h6>
+                        <hr/>
+                    }
+                    
+                    <div class="mb-3">
+                        <label class="form-label">PayPal E-Mail</label>
+                        <input type="email" class="form-control" @bind="dialogPayPalAddress" 
+                               placeholder="z.B. max@gmail.com" disabled="@isProcessing" />
+                        <small class="text-muted">Optional</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Wero (SEPA instant)</label>
+                        <input type="text" class="form-control" @bind="dialogWeroAddress" 
+                               placeholder="z.B. Telefonnummer" disabled="@isProcessing" />
+                        <small class="text-muted">Optional</small>
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(paymentInfoErrorMessage))
+                    {
+                        <div class="alert alert-danger">@paymentInfoErrorMessage</div>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="ClosePaymentInfoDialog" disabled="@isProcessing">
+                        Abbrechen
+                    </button>
+                    <button type="button" class="btn btn-primary" @onclick="SavePaymentInfoFromDialog" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        Speichern
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<Balance>? balances;
     private List<Settlement>? settlements;
@@ -218,6 +273,14 @@
     private bool isProcessing = false;
     private int processingSettlementId = -1;
     private Dictionary<int, decimal> customAmountSettlements = new();
+    
+    // Payment Info Dialog
+    private bool showPaymentInfoDialog = false;
+    private string editingUserId = string.Empty;
+    private string editingUserName = string.Empty;
+    private string dialogPayPalAddress = string.Empty;
+    private string dialogWeroAddress = string.Empty;
+    private string paymentInfoErrorMessage = string.Empty;
     
     protected override async Task OnInitializedAsync()
     {
@@ -232,7 +295,8 @@
         try
         {
             balances = await SettlementService.CalculateBalancesAsync();
-            settlements = await SettlementService.CalculateMinimalTransfersAsync();
+            // Lade gespeicherte Settlements aus der Datenbank
+            settlements = await SettlementService.GetStoredSettlementsAsync();
         }
         catch (Exception ex)
         {
@@ -242,6 +306,29 @@
         finally
         {
             isLoading = false;
+            StateHasChanged();
+        }
+    }
+    
+    private async Task RefreshSettlements()
+    {
+        isProcessing = true;
+        StateHasChanged();
+        
+        try
+        {
+            // Berechne neue Settlements und speichere sie in der Datenbank
+            await SettlementService.SaveCalculatedSettlementsAsync();
+            // Lade die gespeicherten Settlements
+            settlements = await SettlementService.GetStoredSettlementsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fehler beim Berechnen der Ausgleichszahlungen: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
             StateHasChanged();
         }
     }
@@ -257,7 +344,9 @@
         try
         {
             await SettlementService.ApplySettlementAsync(settlement);
-            await RefreshData(); // Daten neu laden
+            // Lade Balances und Settlements neu
+            balances = await SettlementService.CalculateBalancesAsync();
+            settlements = await SettlementService.GetStoredSettlementsAsync();
         }
         catch (Exception ex)
         {
@@ -313,7 +402,9 @@
             // Entferne den Custom Amount nach erfolgreichem Ausgleich
             customAmountSettlements.Remove(originalSettlement.GetHashCode());
             
-            await RefreshData(); // Daten neu laden
+            // Lade Balances und Settlements neu
+            balances = await SettlementService.CalculateBalancesAsync();
+            settlements = await SettlementService.GetStoredSettlementsAsync();
         }
         catch (Exception ex)
         {
@@ -352,6 +443,77 @@
         }
         
         await module.DisposeAsync();
+    }
+    
+    private async Task OpenPaymentInfoDialog(string userId)
+    {
+        if (string.IsNullOrEmpty(userId)) return;
+        
+        try
+        {
+            var user = await DataService.GetUserByIdAsync(userId);
+            if (user != null)
+            {
+                editingUserId = userId;
+                editingUserName = user.Name;
+                dialogPayPalAddress = user.PayPalAddress ?? string.Empty;
+                dialogWeroAddress = user.WeroAddress ?? string.Empty;
+                paymentInfoErrorMessage = string.Empty;
+                showPaymentInfoDialog = true;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Fehler beim Laden der Benutzerinformationen: {ex.Message}");
+        }
+    }
+    
+    private void ClosePaymentInfoDialog()
+    {
+        showPaymentInfoDialog = false;
+        editingUserId = string.Empty;
+        editingUserName = string.Empty;
+        dialogPayPalAddress = string.Empty;
+        dialogWeroAddress = string.Empty;
+        paymentInfoErrorMessage = string.Empty;
+        StateHasChanged();
+    }
+    
+    private async Task SavePaymentInfoFromDialog()
+    {
+        if (string.IsNullOrEmpty(editingUserId)) return;
+        
+        isProcessing = true;
+        paymentInfoErrorMessage = string.Empty;
+        StateHasChanged();
+        
+        try
+        {
+            var user = await DataService.GetUserByIdAsync(editingUserId);
+            if (user != null)
+            {
+                user.PayPalAddress = string.IsNullOrWhiteSpace(dialogPayPalAddress) ? null : dialogPayPalAddress.Trim();
+                user.WeroAddress = string.IsNullOrWhiteSpace(dialogWeroAddress) ? null : dialogWeroAddress.Trim();
+                
+                await DataService.UpdateUserAsync(user);
+                
+                // Aktualisiere die Settlements, damit die neuen Informationen angezeigt werden
+                settlements = await SettlementService.GetStoredSettlementsAsync();
+                
+                ClosePaymentInfoDialog();
+            }
+        }
+        catch (Exception ex)
+        {
+            paymentInfoErrorMessage = $"Fehler beim Speichern: {ex.Message}";
+            Console.WriteLine($"Fehler beim Speichern der Zahlungsinformationen: {ex.Message}");
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
     }
 }
 </div>

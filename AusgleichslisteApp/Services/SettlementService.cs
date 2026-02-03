@@ -9,6 +9,8 @@ namespace AusgleichslisteApp.Services
     {
         Task<List<Balance>> CalculateBalancesAsync();
         Task<List<Settlement>> CalculateMinimalTransfersAsync();
+        Task<List<Settlement>> GetStoredSettlementsAsync();
+        Task SaveCalculatedSettlementsAsync();
         Task<List<Debt>> CalculateCurrentDebtsAsync();
         Task ApplySettlementAsync(Settlement settlement);
         Task ApplyAllSettlementsAsync();
@@ -231,6 +233,29 @@ namespace AusgleichslisteApp.Services
                 var booking = settlement.ToBooking("Ausgleich");
                 await _dataService.AddBookingAsync(booking);
 
+                // Finde das entsprechende gespeicherte Settlement und behandle es
+                var storedSettlements = await _dataService.GetActiveSettlementsAsync();
+                var matchingSettlement = storedSettlements.FirstOrDefault(s => 
+                    s.PayerId == settlement.PayerId && s.RecipientId == settlement.RecipientId);
+
+                if (matchingSettlement != null)
+                {
+                    if (settlement.Amount >= matchingSettlement.Amount)
+                    {
+                        // Exakte oder Überzahlung -> Settlement komplett entfernen
+                        await _dataService.DeleteSettlementAsync(matchingSettlement.Id);
+                        _logger.LogDebug("Removed settlement {SettlementId} - fully paid", matchingSettlement.Id);
+                    }
+                    else
+                    {
+                        // Teilzahlung -> Betrag reduzieren
+                        var remainingAmount = matchingSettlement.Amount - settlement.Amount;
+                        await _dataService.UpdateSettlementAmountAsync(matchingSettlement.Id, remainingAmount);
+                        _logger.LogDebug("Reduced settlement {SettlementId} amount to {RemainingAmount:F2}", 
+                            matchingSettlement.Id, remainingAmount);
+                    }
+                }
+
                 _logger.LogDebug("Settlement successfully applied as booking {BookingId}", booking.Id);
             }
             catch (Exception ex)
@@ -302,6 +327,51 @@ namespace AusgleichslisteApp.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to check if user {UserId} can be deleted", userId);
+                throw;
+            }
+        }
+
+        public async Task<List<Settlement>> GetStoredSettlementsAsync()
+        {
+            _logger.LogDebug("Getting stored settlements from database");
+
+            try
+            {
+                return await _dataService.GetActiveSettlementsAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to get stored settlements");
+                throw;
+            }
+        }
+
+        public async Task SaveCalculatedSettlementsAsync()
+        {
+            _logger.LogDebug("Calculating and saving new settlements to database");
+
+            try
+            {
+                // Lösche alle alten Settlements
+                await _dataService.ClearAllSettlementsAsync();
+
+                // Berechne neue Settlements
+                var newSettlements = await CalculateMinimalTransfersAsync();
+
+                // Speichere neue Settlements in der Datenbank
+                if (newSettlements.Any())
+                {
+                    await _dataService.SaveSettlementsAsync(newSettlements);
+                    _logger.LogInformation("Saved {Count} new settlements to database", newSettlements.Count);
+                }
+                else
+                {
+                    _logger.LogInformation("No settlements needed - all balances are settled");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save calculated settlements");
                 throw;
             }
         }

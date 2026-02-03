@@ -16,12 +16,17 @@ namespace AusgleichslisteApp.Services
         Task<User?> GetUserByIdAsync(string id);
         Task AddUserAsync(User user);
         Task UpdateUserAsync(User user);
-        Task UpdateUserPaymentMethodAsync(string userId, string? paymentMethod);
         Task DeleteUserAsync(string id);
         Task AddBookingAsync(Booking booking);
         Task DeleteBookingAsync(Guid id);
         Task<Logo?> GetLogoAsync();
         Task SaveLogoAsync(Logo logo);
         Task DeleteLogoAsync();
+        Task<List<Settlement>> GetActiveSettlementsAsync();
+        Task SaveSettlementAsync(Settlement settlement);
+        Task SaveSettlementsAsync(List<Settlement> settlements);
+        Task DeleteSettlementAsync(Guid id);
+        Task UpdateSettlementAmountAsync(Guid id, decimal newAmount);
+        Task ClearAllSettlementsAsync();
     }
 }

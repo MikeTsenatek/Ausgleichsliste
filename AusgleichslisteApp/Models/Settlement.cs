@@ -5,10 +5,12 @@ namespace AusgleichslisteApp.Models
     /// </summary>
     public class Settlement
     {
+        public Guid Id { get; set; } = Guid.NewGuid(); // Eindeutige ID für Datenbank
         public string PayerId { get; set; } = string.Empty; // wer zahlt
         public string RecipientId { get; set; } = string.Empty; // wer bekommt
         public decimal Amount { get; set; } // zu zahlender Betrag
         public DateTime SuggestedDate { get; set; } = DateTime.Now;
+        public bool IsActive { get; set; } = true; // Ob der Settlement noch aktiv ist
         
         public User? Payer { get; set; }
         public User? Recipient { get; set; }

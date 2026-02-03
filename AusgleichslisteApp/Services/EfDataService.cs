@@ -234,31 +234,6 @@ namespace AusgleichslisteApp.Services
             }
         }
         
-        public async Task UpdateUserPaymentMethodAsync(string userId, string? paymentMethod)
-        {
-            try
-            {
-                var user = await _context.Users.FindAsync(userId);
-                if (user != null)
-                {
-                    user.PaymentMethod = string.IsNullOrWhiteSpace(paymentMethod) ? null : paymentMethod.Trim();
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("Zahlungsmethode aktualisiert für Benutzer: {UserName} (ID: {UserId}) - PaymentMethod: {PaymentMethod}", 
-                        user.Name, user.Id, user.PaymentMethod ?? "null");
-                }
-                else
-                {
-                    _logger.LogWarning("Benutzer nicht gefunden für PaymentMethod-Update: ID {UserId}", userId);
-                    throw new ArgumentException($"Benutzer mit ID {userId} wurde nicht gefunden.");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Fehler beim Aktualisieren der Zahlungsmethode für Benutzer: {UserId}", userId);
-                throw;
-            }
-        }
-        
         public async Task DeleteUserAsync(string id)
         {
             try
@@ -389,6 +364,147 @@ namespace AusgleichslisteApp.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while deleting logo");
+                throw;
+            }
+        }
+
+        public async Task<List<Settlement>> GetActiveSettlementsAsync()
+        {
+            try
+            {
+                var settlements = await _context.Settlements
+                    .Where(s => s.IsActive)
+                    .OrderBy(s => s.SuggestedDate)
+                    .ToListAsync();
+                
+                // Lade Users separat für Navigation Properties
+                var users = await _context.Users.ToListAsync();
+                var userMap = users.ToDictionary(u => u.Id, u => u);
+                
+                // Setze Navigation Properties manuell
+                foreach (var settlement in settlements)
+                {
+                    if (userMap.TryGetValue(settlement.PayerId, out var payer))
+                        settlement.Payer = payer;
+                    if (userMap.TryGetValue(settlement.RecipientId, out var recipient))
+                        settlement.Recipient = recipient;
+                }
+                
+                return settlements;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Laden der aktiven Settlements");
+                throw;
+            }
+        }
+
+        public async Task SaveSettlementAsync(Settlement settlement)
+        {
+            try
+            {
+                var existingSettlement = await _context.Settlements
+                    .FirstOrDefaultAsync(s => s.Id == settlement.Id);
+
+                if (existingSettlement != null)
+                {
+                    existingSettlement.PayerId = settlement.PayerId;
+                    existingSettlement.RecipientId = settlement.RecipientId;
+                    existingSettlement.Amount = settlement.Amount;
+                    existingSettlement.IsActive = settlement.IsActive;
+                    _context.Settlements.Update(existingSettlement);
+                }
+                else
+                {
+                    _context.Settlements.Add(settlement);
+                }
+
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Settlement saved: {PayerId} -> {RecipientId}: {Amount}€", 
+                    settlement.PayerId, settlement.RecipientId, settlement.Amount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Speichern des Settlements");
+                throw;
+            }
+        }
+
+        public async Task SaveSettlementsAsync(List<Settlement> settlements)
+        {
+            try
+            {
+                // Füge alle neuen Settlements hinzu
+                _context.Settlements.AddRange(settlements);
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("{Count} Settlements gespeichert", settlements.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Speichern der Settlements");
+                throw;
+            }
+        }
+
+        public async Task DeleteSettlementAsync(Guid id)
+        {
+            try
+            {
+                var settlement = await _context.Settlements.FindAsync(id);
+                if (settlement != null)
+                {
+                    _context.Settlements.Remove(settlement);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Settlement gelöscht: {Id}", id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Löschen des Settlements");
+                throw;
+            }
+        }
+
+        public async Task UpdateSettlementAmountAsync(Guid id, decimal newAmount)
+        {
+            try
+            {
+                var settlement = await _context.Settlements.FindAsync(id);
+                if (settlement != null)
+                {
+                    settlement.Amount = newAmount;
+                    if (newAmount <= 0)
+                    {
+                        settlement.IsActive = false; // Deaktiviere Settlement wenn Betrag 0 oder negativ
+                    }
+                    
+                    _context.Settlements.Update(settlement);
+                    await _context.SaveChangesAsync();
+                    
+                    _logger.LogInformation("Settlement Betrag aktualisiert: {Id} -> {Amount}€", id, newAmount);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Aktualisieren des Settlement-Betrags");
+                throw;
+            }
+        }
+
+        public async Task ClearAllSettlementsAsync()
+        {
+            try
+            {
+                var settlements = await _context.Settlements.ToListAsync();
+                _context.Settlements.RemoveRange(settlements);
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("Alle Settlements gelöscht");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Löschen aller Settlements");
                 throw;
             }
         }
