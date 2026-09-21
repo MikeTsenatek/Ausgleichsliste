@@ -71,10 +71,13 @@ builder.Services.AddScoped<AusgleichslisteDbContext>(provider =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IDataService, EfDataService>();
 builder.Services.AddScoped<ISettlementService, SettlementService>();
-builder.Services.AddScoped<ISettingsDatabaseService, SettingsDatabaseService>();
+// Settings services only depend on singleton-safe dependencies and create a fresh
+// DbContext per database operation. Keeping them independent of a Blazor circuit
+// prevents background refreshes from using an already disposed circuit scope.
+builder.Services.AddSingleton<ISettingsDatabaseService, SettingsDatabaseService>();
 builder.Services.AddSingleton<ISettingsService, SettingsService>();
 builder.Services.AddScoped<ILogoService, LogoService>();
-builder.Services.AddScoped<ISettingsCacheService, SettingsCacheService>();
+builder.Services.AddSingleton<ISettingsCacheService, SettingsCacheService>();
 builder.Services.AddScoped<IExpressionCalculatorService, ExpressionCalculatorService>();
 
 var app = builder.Build();

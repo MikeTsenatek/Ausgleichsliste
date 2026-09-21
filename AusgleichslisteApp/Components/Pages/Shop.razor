@@ -1,0 +1,575 @@
+@page "/shop"
+@using AusgleichslisteApp.Models
+@using AusgleichslisteApp.Services
+@inject IDataService DataService
+@inject IJSRuntime JSRuntime
+@inject ISettingsService SettingsService
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+
+<PageTitle>Shop - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
+
+<div class="container-xxl">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">Shop</h1>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Wird geladen...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(message))
+        {
+            <div class="alert @(messageSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+                @message
+                <button type="button" class="btn-close" @onclick="() => message = string.Empty"></button>
+            </div>
+        }
+
+        @if (!CanBook)
+        {
+            <h2 class="h4 mb-3">Wer kauft ein?</h2>
+            <div class="d-flex flex-wrap gap-4 align-items-center py-3 mb-4">
+                @foreach (var user in ActiveUsers)
+                {
+                    <button type="button"
+                            class="btn btn-primary rounded-pill px-4 py-3 fs-5 fw-semibold shadow-sm shop-user-button"
+                            @onclick="() => SelectUser(user)">
+                        @user.Name
+                    </button>
+                }
+            </div>
+
+            @if (!ActiveUsers.Any())
+            {
+                <p class="text-muted">Keine aktiven Nutzer vorhanden.</p>
+            }
+        }
+        else
+        {
+            <div class="shop-toolbar mb-4">
+                <div class="shop-current-user">
+                    <div>
+                        <small>Einkauf für</small>
+                        <strong>@SelectedUser?.Name</strong>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-secondary" @onclick="ChangeUser">
+                    Nutzer wechseln
+                </button>
+            </div>
+
+            <div class="shop-product-grid">
+                @if (products.Any())
+                {
+                    @foreach (var product in products)
+                    {
+                        <button type="button"
+                                class="shop-product-card shadow-sm"
+                                title="@product.Name"
+                                disabled="@isProcessing"
+                                @onclick="() => RequestPurchase(product)">
+                            <strong class="shop-product-name">@product.Name</strong>
+                            <div class="shop-product-image @(!string.IsNullOrWhiteSpace(product.ImageDataUrl) ? "has-image" : "")">
+                                @if (!string.IsNullOrWhiteSpace(product.ImageDataUrl))
+                                {
+                                    <img src="@product.ImageDataUrl" alt="@product.Name" />
+                                }
+                                else
+                                {
+                                    <span>@GetInitials(product.Name)</span>
+                                }
+                            </div>
+                            <span class="shop-product-price">@product.Price.ToString("F2") €</span>
+                        </button>
+                    }
+                }
+                else
+                {
+                    <div class="text-muted py-5">
+                        Noch keine aktiven Shop-Produkte vorhanden.
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@if (pendingProduct != null)
+{
+    <div class="shop-dialog-backdrop" @onclick="CancelPurchase">
+        <div class="shop-dialog" role="dialog" aria-modal="true" aria-labelledby="shop-dialog-title" @onclick:stopPropagation="true">
+            <h2 id="shop-dialog-title">Kauf bestätigen</h2>
+            <p class="shop-dialog-user">Für <strong>@SelectedUser?.Name</strong></p>
+            <strong class="shop-dialog-product">@pendingProduct.Name</strong>
+            @if (!string.IsNullOrWhiteSpace(pendingProduct.ImageDataUrl))
+            {
+                <img src="@pendingProduct.ImageDataUrl" alt="@pendingProduct.Name" class="shop-dialog-image" />
+            }
+            <span class="shop-dialog-price">@pendingProduct.Price.ToString("F2") €</span>
+            <div class="shop-dialog-actions">
+                <button type="button" class="btn btn-outline-secondary" disabled="@isProcessing" @onclick="CancelPurchase">
+                    Abbrechen
+                </button>
+                <button type="button" class="btn btn-primary" disabled="@isProcessing" @onclick="ConfirmPurchase">
+                    @if (isProcessing)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Kaufen
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .shop-user-button {
+        min-width: 112px;
+        min-height: 58px;
+        border: 0;
+        border-radius: 999px !important;
+        cursor: pointer;
+        transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .shop-user-button:hover {
+        box-shadow: 0 8px 20px rgba(33, 37, 41, 0.16) !important;
+        transform: translateY(-2px);
+    }
+
+    .shop-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.85rem 0 1rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .shop-current-user {
+        display: flex;
+        margin-right: auto;
+    }
+
+    .shop-current-user div {
+        display: grid;
+    }
+
+    .shop-current-user small {
+        color: #6c757d;
+    }
+
+    .shop-product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, 256px);
+        gap: 2rem;
+        align-items: start;
+        justify-content: start;
+        padding: 0.5rem 0 2rem;
+    }
+
+    .shop-product-card {
+        box-sizing: border-box;
+        width: 256px !important;
+        height: 256px !important;
+        display: grid !important;
+        grid-template-rows: 60px 108px 30px;
+        align-content: center;
+        justify-items: center;
+        gap: 10px;
+        padding: 18px !important;
+        color: #212529;
+        background: #fff;
+        border: 1px solid #dfe3e7;
+        border-radius: 28px !important;
+        overflow: visible;
+        cursor: pointer;
+        transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .shop-product-card:hover:not(:disabled) {
+        z-index: 5;
+        border-color: var(--primary-color, #0d6efd);
+        box-shadow: 0 9px 22px rgba(33, 37, 41, 0.15) !important;
+        transform: translateY(-3px);
+    }
+
+    .shop-product-card:disabled {
+        opacity: 0.6;
+        cursor: wait;
+    }
+
+    .shop-product-name {
+        position: relative;
+        z-index: 8;
+        width: 100%;
+        min-height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #212529;
+        background: rgba(255, 255, 255, 0.94);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        line-height: 18px;
+        text-align: center;
+        overflow-wrap: anywhere;
+    }
+
+    .shop-product-image {
+        box-sizing: border-box;
+        width: 108px !important;
+        height: 108px !important;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 !important;
+        overflow: hidden;
+        color: #495057;
+        background: #f1f3f5;
+        border-radius: 14px;
+        font-size: 1.2rem;
+        font-weight: 700;
+    }
+
+    .shop-product-image.has-image {
+        position: relative;
+        z-index: 6;
+        transform: scale(1);
+        transition: transform 180ms ease 0ms, box-shadow 180ms ease 0ms;
+    }
+
+    .shop-product-card:hover .shop-product-image.has-image {
+        transform: scale(1.75);
+        box-shadow: 0 10px 28px rgba(33, 37, 41, 0.28);
+        transition-delay: 500ms;
+    }
+
+    .shop-product-image img {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 108px !important;
+        max-height: 108px !important;
+        display: block;
+        object-fit: contain !important;
+    }
+
+    .shop-product-price {
+        position: relative;
+        z-index: 8;
+        padding: 0 0.4rem;
+        color: var(--primary-color, #0d6efd);
+        background: rgba(255, 255, 255, 0.94);
+        border-radius: 7px;
+        font-size: 1.2rem;
+        line-height: 30px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .shop-dialog-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 1050;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: rgba(20, 24, 28, 0.55);
+    }
+
+    .shop-dialog {
+        width: min(100%, 390px);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1.5rem;
+        color: #212529;
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+        text-align: center;
+    }
+
+    .shop-dialog h2,
+    .shop-dialog p {
+        margin: 0;
+    }
+
+    .shop-dialog-user {
+        color: #6c757d;
+    }
+
+    .shop-dialog-product {
+        font-size: 1.15rem;
+    }
+
+    .shop-dialog-image {
+        width: 150px;
+        height: 150px;
+        object-fit: contain;
+        border: 1px solid #e4e7ea;
+        border-radius: 12px;
+        background: #f8f9fa;
+    }
+
+    .shop-dialog-price {
+        color: var(--primary-color, #0d6efd);
+        font-size: 1.7rem;
+        font-weight: 700;
+    }
+
+    .shop-dialog-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+        margin-top: 0.5rem;
+    }
+
+    .shop-dialog-actions .btn {
+        min-height: 48px;
+        border-radius: 12px;
+    }
+
+    @@media (max-width: 767.98px) {
+        .shop-toolbar {
+            align-items: stretch;
+            flex-wrap: wrap;
+        }
+
+        .shop-current-user {
+            width: 100%;
+        }
+
+        .shop-product-grid {
+            grid-template-columns: repeat(auto-fill, 240px);
+            gap: 1.5rem;
+        }
+
+        .shop-product-card {
+            width: 240px !important;
+            height: 240px !important;
+            grid-template-rows: 56px 100px 28px;
+            gap: 8px;
+            padding: 18px !important;
+        }
+
+        .shop-product-name {
+            min-height: 56px;
+            font-size: 0.9rem;
+            line-height: 17px;
+        }
+
+        .shop-product-image {
+            width: 100px !important;
+            height: 100px !important;
+        }
+
+        .shop-product-image img {
+            max-width: 100px !important;
+            max-height: 100px !important;
+        }
+    }
+</style>
+
+@code {
+    private List<User> users = new();
+    private List<ShopProduct> products = new();
+    private string selectedUserId = string.Empty;
+    private string message = string.Empty;
+    private bool messageSuccess;
+    private bool isLoading = true;
+    private bool isProcessing;
+    private ShopProduct? pendingProduct;
+    private DotNetObjectReference<Shop>? dotNetReference;
+
+    private bool CanBook => !string.IsNullOrWhiteSpace(selectedUserId);
+    private IEnumerable<User> ActiveUsers => users.Where(u => u.IsActive).OrderBy(u => u.Name);
+    private User? SelectedUser => users.FirstOrDefault(u => u.Id == selectedUserId);
+
+    private void SelectUser(User user)
+    {
+        selectedUserId = user.Id;
+        message = string.Empty;
+    }
+
+    private void ChangeUser()
+    {
+        selectedUserId = string.Empty;
+        message = string.Empty;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                dotNetReference = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("shopBarcode.initialize", dotNetReference);
+            }
+            catch (JSException)
+            {
+                dotNetReference?.Dispose();
+                dotNetReference = null;
+            }
+
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            users = await DataService.GetUsersAsync();
+            products = await DataService.GetShopProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            message = $"Fehler beim Laden des Shops: {ex.Message}";
+            messageSuccess = false;
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RequestPurchase(ShopProduct product)
+    {
+        message = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(selectedUserId))
+        {
+            message = "Bitte zuerst einen Käufer auswählen.";
+            messageSuccess = false;
+            return;
+        }
+
+        if (selectedUserId == product.ReceiverUserId)
+        {
+            message = "Käufer und Empfänger dürfen nicht identisch sein.";
+            messageSuccess = false;
+            return;
+        }
+
+        pendingProduct = product;
+    }
+
+    private void CancelPurchase()
+    {
+        if (!isProcessing)
+        {
+            pendingProduct = null;
+        }
+    }
+
+    private async Task ConfirmPurchase()
+    {
+        if (pendingProduct == null || isProcessing)
+        {
+            return;
+        }
+
+        var product = pendingProduct;
+
+        isProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            var buyer = users.FirstOrDefault(u => u.Id == selectedUserId);
+            var booking = new Booking(
+                payerId: product.ReceiverUserId,
+                beneficiaryId: selectedUserId,
+                amount: product.Price,
+                article: $"Shop: {product.Name}",
+                date: DateTime.Now
+            );
+
+            await DataService.AddBookingAsync(booking);
+
+            message = $"{product.Name} wurde für {buyer?.Name ?? selectedUserId} gebucht.";
+            messageSuccess = true;
+            pendingProduct = null;
+        }
+        catch (Exception ex)
+        {
+            message = $"Fehler beim Buchen: {ex.Message}";
+            messageSuccess = false;
+        }
+        finally
+        {
+            isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public Task HandleBarcodeScan(string barcode)
+    {
+        var product = products.FirstOrDefault(p =>
+            !string.IsNullOrWhiteSpace(p.Barcode) &&
+            string.Equals(p.Barcode, barcode, StringComparison.OrdinalIgnoreCase));
+
+        if (product == null)
+        {
+            message = $"Kein aktives Produkt für Barcode '{barcode}' gefunden.";
+            messageSuccess = false;
+            StateHasChanged();
+            return Task.CompletedTask;
+        }
+
+        if (pendingProduct == null)
+        {
+            RequestPurchase(product);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 0)
+        {
+            return "?";
+        }
+
+        return string.Concat(parts.Take(2).Select(p => char.ToUpperInvariant(p[0])));
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("shopBarcode.dispose");
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit may already be closed during component disposal.
+        }
+
+        dotNetReference?.Dispose();
+    }
+}

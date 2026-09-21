@@ -508,5 +508,152 @@ namespace AusgleichslisteApp.Services
                 throw;
             }
         }
+
+        public async Task<List<ShopProduct>> GetShopProductsAsync(bool includeInactive = false)
+        {
+            try
+            {
+                var query = _context.ShopProducts.AsQueryable();
+
+                if (!includeInactive)
+                {
+                    query = query.Where(p => p.IsActive);
+                }
+
+                var products = await query
+                    .OrderBy(p => p.Name)
+                    .ToListAsync();
+
+                var users = await _context.Users.ToListAsync();
+                var userMap = users.ToDictionary(u => u.Id, u => u);
+
+                foreach (var product in products)
+                {
+                    product.ReceiverUser = userMap.GetValueOrDefault(product.ReceiverUserId);
+                }
+
+                return products;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Laden der Shop-Produkte");
+                throw;
+            }
+        }
+
+        public async Task<ShopProduct?> GetShopProductByBarcodeAsync(string barcode)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(barcode))
+                {
+                    return null;
+                }
+
+                var normalizedBarcode = barcode.Trim();
+                var product = await _context.ShopProducts
+                    .Where(p => p.IsActive && p.Barcode == normalizedBarcode)
+                    .FirstOrDefaultAsync();
+
+                if (product == null)
+                {
+                    return null;
+                }
+
+                product.ReceiverUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == product.ReceiverUserId);
+
+                return product;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Laden des Shop-Produkts per Barcode: {Barcode}", barcode);
+                throw;
+            }
+        }
+
+        public async Task AddShopProductAsync(ShopProduct product)
+        {
+            try
+            {
+                product.Name = product.Name.Trim();
+                product.Barcode = string.IsNullOrWhiteSpace(product.Barcode) ? null : product.Barcode.Trim();
+                product.Price = Math.Round(product.Price, 2);
+
+                if (!string.IsNullOrWhiteSpace(product.Barcode))
+                {
+                    var barcodeExists = await _context.ShopProducts
+                        .AnyAsync(p => p.Barcode == product.Barcode);
+
+                    if (barcodeExists)
+                    {
+                        throw new InvalidOperationException("Es existiert bereits ein Produkt mit diesem Barcode.");
+                    }
+                }
+
+                _context.ShopProducts.Add(product);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Shop-Produkt hinzugefügt: {ProductName} - {Price:F2}€", product.Name, product.Price);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Hinzufügen des Shop-Produkts: {ProductName}", product.Name);
+                throw;
+            }
+        }
+
+        public async Task UpdateShopProductAsync(ShopProduct product)
+        {
+            try
+            {
+                product.Name = product.Name.Trim();
+                product.Barcode = string.IsNullOrWhiteSpace(product.Barcode) ? null : product.Barcode.Trim();
+                product.Price = Math.Round(product.Price, 2);
+
+                if (!string.IsNullOrWhiteSpace(product.Barcode))
+                {
+                    var barcodeExists = await _context.ShopProducts
+                        .AnyAsync(p => p.Id != product.Id && p.Barcode == product.Barcode);
+
+                    if (barcodeExists)
+                    {
+                        throw new InvalidOperationException("Es existiert bereits ein anderes Produkt mit diesem Barcode.");
+                    }
+                }
+
+                _context.ShopProducts.Update(product);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Shop-Produkt aktualisiert: {ProductName} - {Price:F2}€", product.Name, product.Price);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Aktualisieren des Shop-Produkts: {ProductName}", product.Name);
+                throw;
+            }
+        }
+
+        public async Task DeleteShopProductAsync(Guid id)
+        {
+            try
+            {
+                var product = await _context.ShopProducts.FindAsync(id);
+
+                if (product != null)
+                {
+                    product.IsActive = false;
+                    _context.ShopProducts.Update(product);
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Shop-Produkt deaktiviert: {ProductName}", product.Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Löschen des Shop-Produkts mit ID: {ProductId}", id);
+                throw;
+            }
+        }
     }
 }

@@ -18,6 +18,7 @@ namespace AusgleichslisteApp.Data
         public DbSet<Logo> Logos { get; set; } = default!;
         public DbSet<ConfigurationEntry> ApplicationSettings { get; set; } = default!;
         public DbSet<Settlement> Settlements { get; set; } = default!;
+        public DbSet<ShopProduct> ShopProducts { get; set; } = default!;
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -124,6 +125,34 @@ namespace AusgleichslisteApp.Data
                 entity.HasIndex(e => e.RecipientId);
                 entity.HasIndex(e => e.IsActive);
                 entity.HasIndex(e => e.SuggestedDate);
+            });
+
+            // ShopProduct Konfiguration
+            modelBuilder.Entity<ShopProduct>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).IsRequired();
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Barcode).HasMaxLength(100);
+                entity.Property(e => e.Price).IsRequired().HasColumnType("decimal(18,2)");
+                entity.Property(e => e.ReceiverUserId).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.ImageContentType).HasMaxLength(100);
+                entity.Property(e => e.ImageFileName).HasMaxLength(255);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.Property(e => e.IsActive).IsRequired();
+
+                entity.HasOne<User>()
+                    .WithMany()
+                    .HasForeignKey(e => e.ReceiverUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Ignore(e => e.ReceiverUser);
+                entity.Ignore(e => e.ImageDataUrl);
+
+                entity.HasIndex(e => e.Name);
+                entity.HasIndex(e => e.Barcode);
+                entity.HasIndex(e => e.ReceiverUserId);
+                entity.HasIndex(e => e.IsActive);
             });
         }
     }

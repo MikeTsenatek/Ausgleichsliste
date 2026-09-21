@@ -186,6 +186,59 @@ namespace AusgleichslisteApp.Migrations
                     b.ToTable("Settlements");
                 });
 
+            modelBuilder.Entity("AusgleichslisteApp.Models.ShopProduct", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ImageContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<byte[]>("ImageData")
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("ImageFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ReceiverUserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Barcode");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("Name");
+
+                    b.HasIndex("ReceiverUserId");
+
+                    b.ToTable("ShopProducts");
+                });
+
             modelBuilder.Entity("AusgleichslisteApp.Models.User", b =>
                 {
                     b.Property<string>("Id")
@@ -259,6 +312,15 @@ namespace AusgleichslisteApp.Migrations
                     b.Navigation("Payer");
 
                     b.Navigation("Recipient");
+                });
+
+            modelBuilder.Entity("AusgleichslisteApp.Models.ShopProduct", b =>
+                {
+                    b.HasOne("AusgleichslisteApp.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReceiverUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

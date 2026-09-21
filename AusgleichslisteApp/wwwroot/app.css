@@ -257,6 +257,178 @@ body {
     transform: translateY(-1px);
 }
 
+/* Shop */
+.shop-user-button {
+    min-width: 112px;
+    min-height: 58px;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.shop-user-button:hover {
+    box-shadow: 0 8px 20px rgba(33, 37, 41, 0.16) !important;
+    transform: translateY(-2px);
+}
+
+.shop-user-button:focus-visible,
+.shop-product-card:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
+    outline-offset: 3px;
+}
+
+.shop-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.shop-current-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-right: auto;
+}
+
+.shop-current-user div {
+    display: grid;
+}
+
+.shop-current-user small {
+    color: #6c757d;
+}
+
+.shop-scanner-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #495057;
+}
+
+.shop-product-thumb {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #f1f3f5;
+}
+
+.shop-product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 108px);
+    gap: 1.5rem;
+    align-items: start;
+    justify-content: start;
+    padding: 0.5rem 0 2rem;
+}
+
+.shop-product-card {
+    width: 108px;
+    height: 108px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.5rem;
+    border: 1px solid #dfe3e7;
+    border-radius: 18px;
+    background: #fff;
+    color: #212529;
+    text-align: center;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.shop-product-card:hover:not(:disabled) {
+    border-color: var(--primary-color);
+    box-shadow: 0 7px 18px rgba(33, 37, 41, 0.14);
+    transform: translateY(-3px);
+}
+
+.shop-product-card:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.shop-product-image {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f3f5;
+    color: #495057;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.shop-product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.shop-product-info {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    line-height: 1.1;
+}
+
+.shop-product-info strong,
+.shop-product-info span {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.shop-product-info strong {
+    height: 2.2em;
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.78rem;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.shop-product-info span {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+@media (max-width: 767.98px) {
+    .shop-product-grid {
+        grid-template-columns: repeat(auto-fill, 100px);
+        gap: 1.25rem;
+    }
+
+    .shop-product-card {
+        width: 100px;
+        height: 100px;
+    }
+
+    .shop-toolbar {
+        align-items: stretch;
+        flex-wrap: wrap;
+    }
+
+    .shop-current-user {
+        width: 100%;
+    }
+
+    .shop-scanner-status {
+        margin-right: auto;
+    }
+}
+
 .btn-success {
     /* background-color wird von CSS-Variablen überschrieben */
     color: white;

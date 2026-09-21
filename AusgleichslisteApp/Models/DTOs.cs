@@ -20,6 +20,24 @@ namespace AusgleichslisteApp.Models
                    Amount > 0;
         }
     }
+
+    /// <summary>
+    /// DTO für das Hinzufügen neuer Shop-Produkte.
+    /// </summary>
+    public class ShopProductRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Barcode { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string ReceiverUserId { get; set; } = string.Empty;
+
+        public bool IsValid()
+        {
+            return !string.IsNullOrWhiteSpace(Name) &&
+                   !string.IsNullOrWhiteSpace(ReceiverUserId) &&
+                   Price > 0;
+        }
+    }
   
     /// <summary>
     /// DTO für detaillierte Sammel-Buchungen mit individuellen Beträgen

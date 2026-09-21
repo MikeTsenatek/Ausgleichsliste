@@ -137,18 +137,18 @@
                                                 {
                                                     <span class="spinner-border spinner-border-sm me-1"></span>
                                                 }
-                                                Exakt
+                                                Exakter Betrag
                                             </button>
                                             <button class="btn btn-outline-primary btn-sm" 
                                                     @onclick="() => ToggleCustomAmount(settlement.GetHashCode())"
                                                     disabled="@isProcessing">
                                                 @if (customAmountSettlements.ContainsKey(settlement.GetHashCode()))
                                                 {
-                                                    @("✗")
+                                                    @("✗") //Abbrechen
                                                 }
                                                 else
                                                 {
-                                                    @("✎")
+                                                    @("Individueller Betrag")
                                                 }
                                             </button>
                                         </div>
@@ -174,7 +174,7 @@
                                                         }
                                                         else
                                                         {
-                                                            @("OK")
+                                                            @("OK") // Bestätigen
                                                         }
                                                     </button>
                                                 </div>

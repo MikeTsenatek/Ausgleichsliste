@@ -28,5 +28,10 @@ namespace AusgleichslisteApp.Services
         Task DeleteSettlementAsync(Guid id);
         Task UpdateSettlementAmountAsync(Guid id, decimal newAmount);
         Task ClearAllSettlementsAsync();
+        Task<List<ShopProduct>> GetShopProductsAsync(bool includeInactive = false);
+        Task<ShopProduct?> GetShopProductByBarcodeAsync(string barcode);
+        Task AddShopProductAsync(ShopProduct product);
+        Task UpdateShopProductAsync(ShopProduct product);
+        Task DeleteShopProductAsync(Guid id);
     }
 }

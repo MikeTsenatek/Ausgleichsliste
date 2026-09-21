@@ -218,13 +218,185 @@
             </div>
         </div>
     </div>
+
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Shop-Produkte</h5>
+                </div>
+                <div class="card-body">
+                    <EditForm Model="newProduct" OnValidSubmit="SaveShopProduct">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label">Produktname</label>
+                                <InputText @bind-Value="newProduct.Name"
+                                           class="form-control"
+                                           placeholder="z.B. Mate, Riegel, Kaffee" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Barcode</label>
+                                <InputText @bind-Value="newProduct.Barcode"
+                                           class="form-control"
+                                           placeholder="Optional" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Preis (€)</label>
+                                <InputNumber @bind-Value="newProduct.Price"
+                                             class="form-control"
+                                             min="0.01"
+                                             step="0.01" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Empfänger</label>
+                                <InputSelect @bind-Value="newProduct.ReceiverUserId" class="form-select">
+                                    <option value="">-- Auswählen --</option>
+                                    @foreach (var user in users.Where(u => u.IsActive).OrderBy(u => u.Name))
+                                    {
+                                        <option value="@user.Id">@user.Name</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Bild</label>
+                                <InputFile class="form-control"
+                                           @key="productImageInputKey"
+                                           accept="image/*"
+                                           OnChange="HandleProductImageUpload" />
+                                @if (productImageData != null && !string.IsNullOrWhiteSpace(productImageContentType))
+                                {
+                                    <img src="@GetProductImagePreview()"
+                                         alt="Produktbild-Vorschau"
+                                         class="mt-2"
+                                         style="display:block;width:48px;height:48px;max-width:48px;max-height:48px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;background:#fff;" />
+                                    <button type="button"
+                                            class="btn btn-link btn-sm text-danger p-0 mt-1"
+                                            @onclick="RemoveProductImage">
+                                        Bild entfernen
+                                    </button>
+                                }
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary" disabled="@isProductProcessing">
+                                    @if (isProductProcessing)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-1"></span>
+                                    }
+                                    @(editingProductId.HasValue ? "Änderungen speichern" : "Produkt hinzufügen")
+                                </button>
+                                @if (editingProductId.HasValue)
+                                {
+                                    <button type="button"
+                                            class="btn btn-outline-secondary ms-2"
+                                            disabled="@isProductProcessing"
+                                            @onclick="CancelProductEdit">
+                                        Abbrechen
+                                    </button>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(productImageFileName))
+                                {
+                                    <span class="text-muted ms-2">@productImageFileName</span>
+                                }
+                            </div>
+                        </div>
+                    </EditForm>
+
+                    @if (!string.IsNullOrEmpty(productMessage))
+                    {
+                        <div class="alert @(productSuccess ? "alert-success" : "alert-danger") alert-dismissible fade show mt-3" role="alert">
+                            @productMessage
+                            <button type="button" class="btn-close" @onclick="() => productMessage = string.Empty"></button>
+                        </div>
+                    }
+
+                    <div class="table-responsive mt-4">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Produkt</th>
+                                    <th>Barcode</th>
+                                    <th>Preis</th>
+                                    <th>Empfänger</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (shopProducts.Any())
+                                {
+                                    @foreach (var product in shopProducts)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    @if (!string.IsNullOrWhiteSpace(product.ImageDataUrl))
+                                                    {
+                                                        <img src="@product.ImageDataUrl"
+                                                             alt="@product.Name"
+                                                             style="display:block;width:44px;height:44px;max-width:44px;max-height:44px;object-fit:contain;border:1px solid #dee2e6;border-radius:6px;background:#fff;" />
+                                                    }
+                                                    <strong>@product.Name</strong>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                @if (string.IsNullOrWhiteSpace(product.Barcode))
+                                                {
+                                                    <span class="text-muted">-</span>
+                                                }
+                                                else
+                                                {
+                                                    <code>@product.Barcode</code>
+                                                }
+                                            </td>
+                                            <td>@product.Price.ToString("F2") €</td>
+                                            <td>@(product.ReceiverUser?.Name ?? product.ReceiverUserId)</td>
+                                            <td class="text-end">
+                                                <button type="button"
+                                                        class="btn btn-outline-primary btn-sm me-2"
+                                                        @onclick="() => EditShopProduct(product)"
+                                                        disabled="@isProductProcessing">
+                                                    Bearbeiten
+                                                </button>
+                                                <button type="button"
+                                                        class="btn btn-outline-danger btn-sm"
+                                                        @onclick="() => DeleteShopProduct(product.Id)"
+                                                        disabled="@isProductProcessing">
+                                                    Deaktivieren
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted py-4">Noch keine Shop-Produkte vorhanden.</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @code {
     private BrandingSettings brandingSettings = new();
+    private List<User> users = new();
+    private List<ShopProduct> shopProducts = new();
+    private ShopProductRequest newProduct = new();
     private bool isProcessing = false;
+    private bool isProductProcessing = false;
     private string validationMessage = string.Empty;
     private string successMessage = string.Empty;
+    private string productMessage = string.Empty;
+    private bool productSuccess = false;
+    private byte[]? productImageData;
+    private string? productImageContentType;
+    private string? productImageFileName;
+    private Guid? editingProductId;
+    private int productImageInputKey;
     
     // Logo upload variables
     private bool isUploading = false;
@@ -249,6 +421,8 @@
         
         // Lade aktuelles Logo aus der Datenbank
         currentLogo = await LogoService.GetCurrentLogoAsync();
+        users = await DataService.GetUsersAsync();
+        shopProducts = await DataService.GetShopProductsAsync();
     }
     
     private async Task SaveBrandingSettings()
@@ -369,5 +543,178 @@
         }
         
         StateHasChanged();
+    }
+
+    private async Task HandleProductImageUpload(InputFileChangeEventArgs e)
+    {
+        productMessage = string.Empty;
+        productSuccess = false;
+
+        try
+        {
+            var file = e.File;
+
+            if (file.Size > 2 * 1024 * 1024)
+            {
+                productMessage = "Produktbild ist zu groß. Maximum: 2MB.";
+                return;
+            }
+
+            if (!file.ContentType.StartsWith("image/"))
+            {
+                productMessage = "Nur Bilddateien sind erlaubt.";
+                return;
+            }
+
+            using var stream = file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            productImageData = memoryStream.ToArray();
+            productImageContentType = file.ContentType;
+            productImageFileName = file.Name;
+        }
+        catch (Exception ex)
+        {
+            productMessage = $"Fehler beim Laden des Produktbilds: {ex.Message}";
+        }
+    }
+
+    private string? GetProductImagePreview()
+    {
+        return productImageData == null || string.IsNullOrWhiteSpace(productImageContentType)
+            ? null
+            : $"data:{productImageContentType};base64,{Convert.ToBase64String(productImageData)}";
+    }
+
+    private void EditShopProduct(ShopProduct product)
+    {
+        editingProductId = product.Id;
+        newProduct = new ShopProductRequest
+        {
+            Name = product.Name,
+            Barcode = product.Barcode ?? string.Empty,
+            Price = product.Price,
+            ReceiverUserId = product.ReceiverUserId
+        };
+        productImageData = product.ImageData;
+        productImageContentType = product.ImageContentType;
+        productImageFileName = product.ImageFileName;
+        productMessage = string.Empty;
+        productImageInputKey++;
+    }
+
+    private void CancelProductEdit()
+    {
+        ResetProductForm();
+        productMessage = string.Empty;
+    }
+
+    private void RemoveProductImage()
+    {
+        productImageData = null;
+        productImageContentType = null;
+        productImageFileName = null;
+        productImageInputKey++;
+    }
+
+    private void ResetProductForm()
+    {
+        editingProductId = null;
+        newProduct = new ShopProductRequest();
+        productImageData = null;
+        productImageContentType = null;
+        productImageFileName = null;
+        productImageInputKey++;
+    }
+
+    private async Task SaveShopProduct()
+    {
+        productMessage = string.Empty;
+        productSuccess = false;
+
+        if (!newProduct.IsValid())
+        {
+            productMessage = "Bitte Produktname, Preis und Empfänger korrekt ausfüllen.";
+            return;
+        }
+
+        isProductProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            ShopProduct product;
+
+            if (editingProductId.HasValue)
+            {
+                product = shopProducts.First(p => p.Id == editingProductId.Value);
+                product.Name = newProduct.Name;
+                product.Barcode = newProduct.Barcode;
+                product.Price = newProduct.Price;
+                product.ReceiverUserId = newProduct.ReceiverUserId;
+                product.ImageData = productImageData;
+                product.ImageContentType = productImageContentType;
+                product.ImageFileName = productImageFileName;
+
+                await DataService.UpdateShopProductAsync(product);
+                productMessage = $"Produkt '{product.Name}' wurde aktualisiert.";
+            }
+            else
+            {
+                product = new ShopProduct
+                {
+                    Name = newProduct.Name,
+                    Barcode = newProduct.Barcode,
+                    Price = newProduct.Price,
+                    ReceiverUserId = newProduct.ReceiverUserId,
+                    ImageData = productImageData,
+                    ImageContentType = productImageContentType,
+                    ImageFileName = productImageFileName
+                };
+
+                await DataService.AddShopProductAsync(product);
+                productMessage = $"Produkt '{product.Name}' wurde hinzugefügt.";
+            }
+
+            shopProducts = await DataService.GetShopProductsAsync();
+
+            productSuccess = true;
+            ResetProductForm();
+        }
+        catch (Exception ex)
+        {
+            productMessage = $"Fehler beim Speichern des Produkts: {ex.Message}";
+        }
+        finally
+        {
+            isProductProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteShopProduct(Guid productId)
+    {
+        isProductProcessing = true;
+        productMessage = string.Empty;
+        productSuccess = false;
+        StateHasChanged();
+
+        try
+        {
+            await DataService.DeleteShopProductAsync(productId);
+            shopProducts = await DataService.GetShopProductsAsync();
+            productMessage = "Produkt wurde deaktiviert.";
+            productSuccess = true;
+        }
+        catch (Exception ex)
+        {
+            productMessage = $"Fehler beim Deaktivieren des Produkts: {ex.Message}";
+        }
+        finally
+        {
+            isProductProcessing = false;
+            StateHasChanged();
+        }
     }
 }

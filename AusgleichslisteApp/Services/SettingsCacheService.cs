@@ -1,6 +1,5 @@
 using AusgleichslisteApp.Models;
 using Microsoft.Extensions.Options;
-using System.Collections.Concurrent;
 
 namespace AusgleichslisteApp.Services
 {
@@ -21,8 +20,7 @@ namespace AusgleichslisteApp.Services
         private readonly ILogger<SettingsCacheService> _logger;
         
         private ApplicationSettings? _cachedSettings;
-        private readonly object _cacheLock = new object();
-        private bool _isLoading = false;
+        private readonly SemaphoreSlim _refreshLock = new(1, 1);
         private DateTime _lastUpdate = DateTime.MinValue;
         private readonly TimeSpan _cacheLifetime = TimeSpan.FromMinutes(10);
         
@@ -49,22 +47,11 @@ namespace AusgleichslisteApp.Services
                 return _cachedSettings;
             }
             
-            // Wenn noch nie geladen oder zu alt, versuche sync zu laden
+            // Blazor rendering is synchronous here. Refresh without blocking the
+            // renderer; this singleton service and its context factory outlive a circuit.
             if (_cachedSettings == null || DateTime.UtcNow - _lastUpdate > _cacheLifetime)
             {
-                if (!_isLoading)
-                {
-                    // Versuche synchronen Load für bessere UX
-                    try
-                    {
-                        RefreshSettingsAsync().Wait(TimeSpan.FromSeconds(2));
-                    }
-                    catch
-                    {
-                        // Falls sync load fehlschlägt, starte async
-                        _ = Task.Run(RefreshSettingsAsync);
-                    }
-                }
+                _ = RefreshSettingsAsync();
             }
             
             // Fallback auf aktuellen Cache oder appsettings.json
@@ -73,13 +60,7 @@ namespace AusgleichslisteApp.Services
         
         public async Task RefreshSettingsAsync()
         {
-            if (_isLoading) return;
-            
-            lock (_cacheLock)
-            {
-                if (_isLoading) return;
-                _isLoading = true;
-            }
+            if (!await _refreshLock.WaitAsync(0)) return;
             
             try
             {
@@ -166,11 +147,8 @@ namespace AusgleichslisteApp.Services
                 }
                 
                 // Aktualisiere Cache
-                lock (_cacheLock)
-                {
-                    _cachedSettings = newSettings;
-                    _lastUpdate = DateTime.UtcNow;
-                }
+                _cachedSettings = newSettings;
+                _lastUpdate = DateTime.UtcNow;
                 
                 _logger.LogDebug("Settings-Cache erfolgreich aktualisiert");
             }
@@ -180,10 +158,7 @@ namespace AusgleichslisteApp.Services
             }
             finally
             {
-                lock (_cacheLock)
-                {
-                    _isLoading = false;
-                }
+                _refreshLock.Release();
             }
         }
     }

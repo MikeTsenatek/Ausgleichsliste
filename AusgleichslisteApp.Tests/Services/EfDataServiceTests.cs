@@ -219,6 +219,84 @@ public class EfDataServiceTests : IDisposable
         dbBooking.DeletedAt.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task AddShopProductAsync_ShouldAddProduct()
+    {
+        // Arrange
+        var receiver = new User { Name = "Shop Owner", IsActive = true };
+        _context.Users.Add(receiver);
+        await _context.SaveChangesAsync();
+
+        var product = new ShopProduct
+        {
+            Name = "Cola",
+            Barcode = "123456789",
+            Price = 1.5m,
+            ReceiverUserId = receiver.Id
+        };
+
+        // Act
+        await _service.AddShopProductAsync(product);
+
+        // Assert
+        var dbProduct = await _context.ShopProducts.FirstOrDefaultAsync(p => p.Barcode == "123456789");
+        dbProduct.Should().NotBeNull();
+        dbProduct!.Name.Should().Be("Cola");
+        dbProduct.Price.Should().Be(1.5m);
+        dbProduct.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetShopProductByBarcodeAsync_ShouldReturnActiveProductWithReceiver()
+    {
+        // Arrange
+        var receiver = new User { Name = "Shop Owner", IsActive = true };
+        _context.Users.Add(receiver);
+        _context.ShopProducts.Add(new ShopProduct
+        {
+            Name = "Snack",
+            Barcode = "987654321",
+            Price = 2m,
+            ReceiverUserId = receiver.Id
+        });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var product = await _service.GetShopProductByBarcodeAsync("987654321");
+
+        // Assert
+        product.Should().NotBeNull();
+        product!.Name.Should().Be("Snack");
+        product.ReceiverUser.Should().NotBeNull();
+        product.ReceiverUser!.Name.Should().Be("Shop Owner");
+    }
+
+    [Fact]
+    public async Task DeleteShopProductAsync_ShouldDeactivateProduct()
+    {
+        // Arrange
+        var receiver = new User { Name = "Shop Owner", IsActive = true };
+        var product = new ShopProduct
+        {
+            Name = "Water",
+            Barcode = "111",
+            Price = 1m,
+            ReceiverUserId = receiver.Id
+        };
+
+        _context.Users.Add(receiver);
+        _context.ShopProducts.Add(product);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await _service.DeleteShopProductAsync(product.Id);
+
+        // Assert
+        var dbProduct = await _context.ShopProducts.FindAsync(product.Id);
+        dbProduct.Should().NotBeNull();
+        dbProduct!.IsActive.Should().BeFalse();
+    }
+
     public void Dispose()
     {
         _context.Dispose();
