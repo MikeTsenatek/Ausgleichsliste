@@ -234,6 +234,48 @@ namespace AusgleichslisteApp.Services
             }
         }
         
+        public async Task<User?> GetUserByNfcIdAsync(string nfcId)
+        {
+            var normalized = NormalizeNfcId(nfcId);
+            if (normalized == null) return null;
+            return await _context.Users.AsNoTracking()
+                .SingleOrDefaultAsync(u => u.IsActive && u.NfcId == normalized);
+        }
+
+        public async Task SetUserNfcIdAsync(string userId, string? nfcId)
+        {
+            var normalized = NormalizeNfcId(nfcId);
+            var user = await _context.Users.SingleOrDefaultAsync(u => u.Id == userId && u.IsActive)
+                ?? throw new InvalidOperationException("Aktiver Benutzer wurde nicht gefunden.");
+            if (normalized != null && await _context.Users.AsNoTracking()
+                .AnyAsync(u => u.Id != userId && u.NfcId == normalized))
+            {
+                throw new InvalidOperationException("Diese NFC-Karte ist bereits einem anderen Benutzer zugeordnet.");
+            }
+
+            var previous = user.NfcId;
+            user.NfcId = normalized;
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                user.NfcId = previous;
+                _context.Entry(user).Property(u => u.NfcId).IsModified = false;
+                throw new InvalidOperationException("Die NFC-Zuordnung konnte nicht gespeichert werden. Die Karte ist möglicherweise bereits vergeben.");
+            }
+        }
+
+        private static string? NormalizeNfcId(string? nfcId)
+        {
+            if (string.IsNullOrWhiteSpace(nfcId)) return null;
+            var normalized = nfcId.Trim().ToUpperInvariant();
+            if (normalized.Length > 128)
+                throw new ArgumentException("Die NFC-ID ist zu lang.");
+            return normalized;
+        }
+
         public async Task DeleteUserAsync(string id)
         {
             try

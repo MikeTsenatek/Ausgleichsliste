@@ -11,6 +11,7 @@ namespace AusgleichslisteApp.Models
         public string? PaymentMethod { get; set; } // Legacy field for backwards compatibility
         public string? PayPalAddress { get; set; } // PayPal Email/Username
         public string? WeroAddress { get; set; } // Wero/SEPA instant transfer
+        public string? NfcId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public bool IsActive { get; set; } = true;
         

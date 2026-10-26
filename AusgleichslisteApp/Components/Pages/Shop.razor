@@ -9,7 +9,7 @@
 
 <PageTitle>Shop - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
 
-<div class="container-xxl">
+<div class="container-xxl shop-page">
     <div class="row">
         <div class="col-12">
             <h1 class="mb-4">Shop</h1>
@@ -421,6 +421,11 @@
     private ShopProduct? pendingProduct;
     private DotNetObjectReference<Shop>? dotNetReference;
     private IJSObjectReference? module;
+    private bool? lastNfcEnabled;
+    private bool isResolvingCard;
+    private string? lastCardSerial;
+    private long lastCardReadAt;
+    private int purchaseSelectionVersion;
 
     private IEnumerable<User> ActiveUsers => users.Where(u => u.IsActive).OrderBy(u => u.Name);
     private User? SelectedUser => users.FirstOrDefault(u => u.Id == selectedUserId);
@@ -465,6 +470,13 @@
 
             StateHasChanged();
         }
+
+        var nfcEnabled = pendingProduct != null && SelectedUser == null && !isProcessing;
+        if (module != null && lastNfcEnabled != nfcEnabled)
+        {
+            lastNfcEnabled = nfcEnabled;
+            await module.InvokeVoidAsync("setNfcEnabled", nfcEnabled);
+        }
     }
 
     private async Task LoadData()
@@ -489,6 +501,46 @@
         }
     }
 
+    [JSInvokable]
+    public async Task HandleNfcSelection(string unused, string serialNumber)
+    {
+        if (pendingProduct == null || SelectedUser != null || isProcessing || isResolvingCard || string.IsNullOrWhiteSpace(serialNumber)) return;
+        var serial = serialNumber.Trim().ToUpperInvariant();
+        var now = Environment.TickCount64;
+        if (serial == lastCardSerial && now - lastCardReadAt < 2000) return;
+        lastCardSerial = serial;
+        lastCardReadAt = now;
+        var selectionVersion = purchaseSelectionVersion;
+        isResolvingCard = true;
+        try
+        {
+            var buyer = await DataService.GetUserByNfcIdAsync(serial);
+            if (selectionVersion != purchaseSelectionVersion || pendingProduct == null || SelectedUser != null || isProcessing) return;
+            if (buyer == null)
+            {
+                message = "Diese Karte ist keinem aktiven Benutzer zugeordnet.";
+                messageSuccess = false;
+            }
+            else
+            {
+                users.RemoveAll(u => u.Id == buyer.Id);
+                users.Add(buyer);
+                SelectUser(buyer);
+            }
+        }
+        catch (Exception)
+        {
+            if (selectionVersion != purchaseSelectionVersion) return;
+            message = "Benutzer konnte nicht geladen werden. Bitte erneut versuchen.";
+            messageSuccess = false;
+        }
+        finally
+        {
+            isResolvingCard = false;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
     private void RequestPurchase(ShopProduct product)
     {
         if (isProcessing || pendingProduct != null)
@@ -499,6 +551,8 @@
         message = string.Empty;
         selectedUserId = string.Empty;
         pendingProduct = product;
+        purchaseSelectionVersion++;
+        lastCardSerial = null;
     }
 
     private void CancelPurchase()
@@ -506,6 +560,7 @@
         if (!isProcessing)
         {
             pendingProduct = null;
+            purchaseSelectionVersion++;
             selectedUserId = string.Empty;
             message = string.Empty;
         }

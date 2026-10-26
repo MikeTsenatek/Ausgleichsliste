@@ -266,6 +266,10 @@ namespace AusgleichslisteApp.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("NfcId")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PayPalAddress")
                         .HasColumnType("TEXT");
 
@@ -281,6 +285,8 @@ namespace AusgleichslisteApp.Migrations
                     b.HasIndex("IsActive");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("NfcId").IsUnique();
 
                     b.ToTable("Users");
                 });

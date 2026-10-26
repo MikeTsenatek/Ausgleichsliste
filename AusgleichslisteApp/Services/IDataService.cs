@@ -16,6 +16,8 @@ namespace AusgleichslisteApp.Services
         Task<User?> GetUserByIdAsync(string id);
         Task AddUserAsync(User user);
         Task UpdateUserAsync(User user);
+        Task SetUserNfcIdAsync(string userId, string? nfcId);
+        Task<User?> GetUserByNfcIdAsync(string nfcId);
         Task DeleteUserAsync(string id);
         Task AddBookingAsync(Booking booking);
         Task DeleteBookingAsync(Guid id);

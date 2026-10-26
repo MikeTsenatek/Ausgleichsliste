@@ -65,3 +65,8 @@ self.addEventListener("fetch", event => {
 function isStaticAsset(pathname) {
     return pathname.startsWith("/_framework/")
         || pathname.startsWith("/_content/")
+        || pathname === "/app.css"
+        || pathname === "/favicon.png"
+        || pathname.startsWith("/icons/")
+        || /\.(css|js|woff2?)$/.test(pathname);
+}

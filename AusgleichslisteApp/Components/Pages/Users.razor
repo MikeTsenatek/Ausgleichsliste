@@ -2,6 +2,9 @@
 @using AusgleichslisteApp.Models
 @using AusgleichslisteApp.Services
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
 @* @attribute [Authorize(Roles = "Admin")] *@
 @inject IDataService DataService
 @inject ISettlementService SettlementService
@@ -10,7 +13,7 @@
 
 <PageTitle>Benutzer verwalten - @SettingsService.Settings.Branding.ApplicationName</PageTitle>
 
-<div class="container-xxl">
+<div class="container-xxl users-page">
     <div class="row">
         <div class="col-12">
             <h1 class="mb-4">
@@ -78,6 +81,10 @@
                                             <th>Name</th>
                                             <th>Saldo</th>
                                             <th>Erstellt</th>
+                                            @if (isAdmin)
+                                            {
+                                                <th>NFC-Karte</th>
+                                            }
                                             <th>Aktionen</th>
                                         </tr>
                                     </thead>
@@ -112,6 +119,19 @@
                                                 <td>
                                                     <small class="text-muted">@user.CreatedAt.ToString("dd.MM.yyyy")</small>
                                                 </td>
+                                                @if (isAdmin)
+                                                {
+                                                    <td>
+                                                        <div class="small mb-2">@(user.NfcId ?? "Keine Karte angelernt")</div>
+                                                        <button type="button" class="btn btn-outline-primary btn-sm" data-nfc-start="@user.Id" data-nfc-label="@user.Name" disabled="@isProcessing">
+                                                            @(user.NfcId == null ? "NFC anlernen" : "NFC neu anlernen")
+                                                        </button>
+                                                        @if (user.NfcId != null)
+                                                        {
+                                                            <button type="button" class="btn btn-outline-danger btn-sm" disabled="@isProcessing" @onclick="() => RemoveNfc(user.Id)">NFC entfernen</button>
+                                                        }
+                                                    </td>
+                                                }
                                                 <td>
                                                     @if (canDelete)
                                                     {
@@ -143,6 +163,15 @@
             </div>
         </div>
         
+        @if (isAdmin)
+        {
+            <div class="mb-3">
+                <p class="text-muted small">Zum Anlernen beim Benutzer auf „NFC anlernen“ tippen und die Karte vorhalten. Benötigt HTTPS, ein NFC-fähiges Android-Gerät mit z. B. Chrome und eine NDEF-kompatible Karte.</p>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-nfc-stop>Scan beenden</button>
+                <p class="mt-2" role="status">@nfcStatus</p>
+            </div>
+        }
+
         @if (!string.IsNullOrEmpty(successMessage))
         {
             <div class="alert alert-success alert-dismissible fade show">
@@ -161,6 +190,11 @@
     }
 
 @code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+    private bool isAdmin;
+    private string nfcStatus = string.Empty;
+    private DotNetObjectReference<Users>? nfcReference;
+    private IJSObjectReference? nfcModule;
     private List<User>? users;
     private Dictionary<string, decimal> userBalances = new();
     private AddUserRequest newUserRequest = new();
@@ -172,9 +206,84 @@
     
     protected override async Task OnInitializedAsync()
     {
+        isAdmin = AuthenticationStateTask != null &&
+            (await AuthenticationStateTask).User.IsInRole("Admin");
         await LoadData();
     }
-    
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!isAdmin || nfcModule != null) return;
+        nfcReference = DotNetObjectReference.Create(this);
+        try
+        {
+            nfcModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Users.razor.js");
+            await nfcModule.InvokeVoidAsync("initialize", nfcReference);
+        }
+        catch (JSException)
+        {
+            nfcStatus = "NFC konnte nicht initialisiert werden. Bitte die Seite neu laden.";
+        }
+    }
+
+    [JSInvokable]
+    public Task HandleNfcStatus(string status)
+    {
+        nfcStatus = status;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public async Task HandleNfcEnrollment(string userId, string serialNumber)
+    {
+        if (!isAdmin || isProcessing || string.IsNullOrWhiteSpace(serialNumber)) return;
+        await SaveNfc(userId, serialNumber);
+    }
+
+    private Task RemoveNfc(string userId) => SaveNfc(userId, null);
+
+    private async Task SaveNfc(string userId, string? serialNumber)
+    {
+        if (AuthenticationStateTask == null || !(await AuthenticationStateTask).User.IsInRole("Admin") || isProcessing) return;
+        isProcessing = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+        nfcStatus = string.Empty;
+        try
+        {
+            if (nfcModule != null) await nfcModule.InvokeVoidAsync("stopNfc");
+            await DataService.SetUserNfcIdAsync(userId, serialNumber);
+            await LoadData();
+            var name = users?.FirstOrDefault(u => u.Id == userId)?.Name;
+            successMessage = serialNumber == null
+                ? $"NFC-Zuordnung für {name} entfernt."
+                : $"NFC-Karte für {name} angelernt.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"NFC-Zuordnung fehlgeschlagen: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (nfcModule != null)
+            {
+                await nfcModule.InvokeVoidAsync("dispose");
+                await nfcModule.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException) { }
+        finally { nfcReference?.Dispose(); }
+    }
+
     private async Task LoadData()
     {
         isLoading = true;
