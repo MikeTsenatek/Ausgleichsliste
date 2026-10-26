@@ -232,6 +232,7 @@ public class EfDataServiceTests : IDisposable
             Name = "Cola",
             Barcode = "123456789",
             Price = 1.5m,
+            StockQuantity = 12,
             ReceiverUserId = receiver.Id
         };
 
@@ -243,6 +244,7 @@ public class EfDataServiceTests : IDisposable
         dbProduct.Should().NotBeNull();
         dbProduct!.Name.Should().Be("Cola");
         dbProduct.Price.Should().Be(1.5m);
+        dbProduct.StockQuantity.Should().Be(12);
         dbProduct.IsActive.Should().BeTrue();
     }
 
@@ -295,6 +297,98 @@ public class EfDataServiceTests : IDisposable
         var dbProduct = await _context.ShopProducts.FindAsync(product.Id);
         dbProduct.Should().NotBeNull();
         dbProduct!.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PurchaseShopProductAsync_ShouldCreateBookingAndReduceStock()
+    {
+        // Arrange
+        var receiver = new User { Name = "Shop Owner", Id = "shop-owner-purchase", IsActive = true };
+        var buyer = new User { Name = "Buyer", Id = "buyer-purchase", IsActive = true };
+        var product = new ShopProduct
+        {
+            Name = "Limo",
+            Barcode = "222",
+            Price = 2.5m,
+            StockQuantity = 3,
+            ReceiverUserId = receiver.Id
+        };
+
+        _context.Users.AddRange(receiver, buyer);
+        _context.ShopProducts.Add(product);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var booking = await _service.PurchaseShopProductAsync(product.Id, buyer.Id);
+
+        // Assert
+        booking.Should().NotBeNull();
+        booking!.Article.Should().Be("Shop: Limo");
+        booking.PayerId.Should().Be(receiver.Id);
+        booking.BeneficiaryId.Should().Be(buyer.Id);
+        booking.Amount.Should().Be(2.5m);
+
+        var dbProduct = await _context.ShopProducts.FindAsync(product.Id);
+        dbProduct!.StockQuantity.Should().Be(2);
+
+        var dbBooking = await _context.Bookings.FindAsync(booking.Id);
+        dbBooking.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task PurchaseShopProductAsync_WhenStockIsZero_ShouldCreateBookingAndAllowNegativeStock()
+    {
+        // Arrange
+        var receiver = new User { Name = "Shop Owner", Id = "shop-owner-empty", IsActive = true };
+        var buyer = new User { Name = "Buyer", Id = "buyer-empty", IsActive = true };
+        var product = new ShopProduct
+        {
+            Name = "Empty Snack",
+            Barcode = "333",
+            Price = 1.25m,
+            StockQuantity = 0,
+            ReceiverUserId = receiver.Id
+        };
+
+        _context.Users.AddRange(receiver, buyer);
+        _context.ShopProducts.Add(product);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var booking = await _service.PurchaseShopProductAsync(product.Id, buyer.Id);
+
+        // Assert
+        booking.Should().NotBeNull();
+        booking!.Article.Should().Be("Shop: Empty Snack");
+        (await _context.Bookings.CountAsync()).Should().Be(1);
+        (await _context.ShopProducts.FindAsync(product.Id))!.StockQuantity.Should().Be(-1);
+    }
+
+    [Fact]
+    public async Task PurchaseShopProductAsync_WhenBuyerIsReceiver_ShouldReduceStockWithoutBooking()
+    {
+        // Arrange
+        var receiver = new User { Name = "Shop Owner", Id = "shop-owner-self", IsActive = true };
+        var product = new ShopProduct
+        {
+            Name = "Owner Snack",
+            Barcode = "444",
+            Price = 1.75m,
+            StockQuantity = 4,
+            ReceiverUserId = receiver.Id
+        };
+
+        _context.Users.Add(receiver);
+        _context.ShopProducts.Add(product);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var booking = await _service.PurchaseShopProductAsync(product.Id, receiver.Id);
+
+        // Assert
+        booking.Should().BeNull();
+        (await _context.Bookings.CountAsync()).Should().Be(0);
+        (await _context.ShopProducts.FindAsync(product.Id))!.StockQuantity.Should().Be(3);
     }
 
     public void Dispose()

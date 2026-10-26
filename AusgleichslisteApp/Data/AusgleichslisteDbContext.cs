@@ -135,6 +135,7 @@ namespace AusgleichslisteApp.Data
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Barcode).HasMaxLength(100);
                 entity.Property(e => e.Price).IsRequired().HasColumnType("decimal(18,2)");
+                entity.Property(e => e.StockQuantity).IsRequired();
                 entity.Property(e => e.ReceiverUserId).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.ImageContentType).HasMaxLength(100);
                 entity.Property(e => e.ImageFileName).HasMaxLength(255);
@@ -151,6 +152,7 @@ namespace AusgleichslisteApp.Data
 
                 entity.HasIndex(e => e.Name);
                 entity.HasIndex(e => e.Barcode);
+                entity.HasIndex(e => e.StockQuantity);
                 entity.HasIndex(e => e.ReceiverUserId);
                 entity.HasIndex(e => e.IsActive);
             });

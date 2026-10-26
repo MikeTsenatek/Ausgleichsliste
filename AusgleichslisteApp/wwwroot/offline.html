@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#512bd4">
+    <title>Ausgleichsliste - Offline</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            padding: 2rem;
+            color: #212529;
+            background: #f8f9fa;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+        main { width: min(100%, 28rem); text-align: center; }
+        img { width: 5rem; height: 5rem; margin-bottom: 1rem; }
+        h1 { margin: 0 0 0.75rem; font-size: 1.75rem; }
+        p { margin: 0 0 1.5rem; color: #495057; line-height: 1.5; }
+        button {
+            border: 0;
+            border-radius: 6px;
+            padding: 0.7rem 1rem;
+            color: #fff;
+            background: #512bd4;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <img src="/icons/icon-192.png" alt="">
+        <h1>Gerade keine Verbindung</h1>
+        <p>Die Ausgleichsliste benoetigt fuer aktuelle Buchungen eine Verbindung zum Server.</p>
+        <button type="button" onclick="location.reload()">Erneut versuchen</button>
+    </main>
+</body>

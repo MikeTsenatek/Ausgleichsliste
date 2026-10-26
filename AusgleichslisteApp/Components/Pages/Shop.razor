@@ -34,14 +34,27 @@
             </div>
         }
 
-        @if (!CanBook)
+        @if (pendingProduct != null)
         {
+            <div class="shop-toolbar mb-4">
+                <div class="shop-current-product">
+                    <div>
+                        <small>Ausgewähltes Produkt</small>
+                        <strong>@pendingProduct.Name · @pendingProduct.Price.ToString("F2") €</strong>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-secondary" disabled="@isProcessing" @onclick="CancelPurchase">
+                    Produkt wechseln
+                </button>
+            </div>
+
             <h2 class="h4 mb-3">Wer kauft ein?</h2>
             <div class="d-flex flex-wrap gap-4 align-items-center py-3 mb-4">
                 @foreach (var user in ActiveUsers)
                 {
                     <button type="button"
                             class="btn btn-primary rounded-pill px-4 py-3 fs-5 fw-semibold shadow-sm shop-user-button"
+                            disabled="@isProcessing"
                             @onclick="() => SelectUser(user)">
                         @user.Name
                     </button>
@@ -55,18 +68,7 @@
         }
         else
         {
-            <div class="shop-toolbar mb-4">
-                <div class="shop-current-user">
-                    <div>
-                        <small>Einkauf für</small>
-                        <strong>@SelectedUser?.Name</strong>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-outline-secondary" @onclick="ChangeUser">
-                    Nutzer wechseln
-                </button>
-            </div>
-
+            <h2 class="h4 mb-3">Produkt auswählen</h2>
             <div class="shop-product-grid">
                 @if (products.Any())
                 {
@@ -89,6 +91,9 @@
                                 }
                             </div>
                             <span class="shop-product-price">@product.Price.ToString("F2") €</span>
+                            <span class="shop-product-stock @(product.StockQuantity > 0 ? "in-stock" : "low-stock")">
+                                Bestand @product.StockQuantity
+                            </span>
                         </button>
                     }
                 }
@@ -103,7 +108,7 @@
     }
 </div>
 
-@if (pendingProduct != null)
+@if (pendingProduct != null && SelectedUser != null)
 {
     <div class="shop-dialog-backdrop" @onclick="CancelPurchase">
         <div class="shop-dialog" role="dialog" aria-modal="true" aria-labelledby="shop-dialog-title" @onclick:stopPropagation="true">
@@ -134,10 +139,12 @@
 <style>
     .shop-user-button {
         min-width: 112px;
+        max-width: 100%;
         min-height: 58px;
         border: 0;
         border-radius: 999px !important;
         cursor: pointer;
+        overflow-wrap: anywhere;
         transition: transform 160ms ease, box-shadow 160ms ease;
     }
 
@@ -154,22 +161,22 @@
         border-bottom: 1px solid #dee2e6;
     }
 
-    .shop-current-user {
+    .shop-current-product {
         display: flex;
         margin-right: auto;
     }
 
-    .shop-current-user div {
+    .shop-current-product div {
         display: grid;
     }
 
-    .shop-current-user small {
+    .shop-current-product small {
         color: #6c757d;
     }
 
     .shop-product-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, 256px);
+        grid-template-columns: repeat(auto-fill, min(256px, 100%));
         gap: 2rem;
         align-items: start;
         justify-content: start;
@@ -178,14 +185,14 @@
 
     .shop-product-card {
         box-sizing: border-box;
-        width: 256px !important;
-        height: 256px !important;
+        width: min(256px, 100%) !important;
+        height: 280px !important;
         display: grid !important;
-        grid-template-rows: 60px 108px 30px;
+        grid-template-rows: 54px 100px 30px 24px;
         align-content: center;
         justify-items: center;
-        gap: 10px;
-        padding: 18px !important;
+        gap: 9px;
+        padding: 20px 18px !important;
         color: #212529;
         background: #fff;
         border: 1px solid #dfe3e7;
@@ -204,14 +211,14 @@
 
     .shop-product-card:disabled {
         opacity: 0.6;
-        cursor: wait;
+        cursor: not-allowed;
     }
 
     .shop-product-name {
         position: relative;
         z-index: 8;
         width: 100%;
-        min-height: 60px;
+        min-height: 54px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -275,6 +282,28 @@
         white-space: nowrap;
     }
 
+    .shop-product-stock {
+        position: relative;
+        z-index: 8;
+        min-width: 82px;
+        padding: 0 0.5rem;
+        border-radius: 999px;
+        font-size: 0.82rem;
+        line-height: 24px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .shop-product-stock.in-stock {
+        color: #0f5132;
+        background: #d1e7dd;
+    }
+
+    .shop-product-stock.low-stock {
+        color: #842029;
+        background: #f8d7da;
+    }
+
     .shop-dialog-backdrop {
         position: fixed;
         inset: 0;
@@ -330,7 +359,7 @@
     .shop-dialog-actions {
         width: 100%;
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.75rem;
         margin-top: 0.5rem;
     }
@@ -346,19 +375,19 @@
             flex-wrap: wrap;
         }
 
-        .shop-current-user {
+        .shop-current-product {
             width: 100%;
         }
 
         .shop-product-grid {
-            grid-template-columns: repeat(auto-fill, 240px);
+            grid-template-columns: repeat(auto-fill, min(240px, 100%));
             gap: 1.5rem;
         }
 
         .shop-product-card {
-            width: 240px !important;
-            height: 240px !important;
-            grid-template-rows: 56px 100px 28px;
+            width: min(240px, 100%) !important;
+            height: 256px !important;
+            grid-template-rows: 52px 88px 28px 24px;
             gap: 8px;
             padding: 18px !important;
         }
@@ -370,13 +399,13 @@
         }
 
         .shop-product-image {
-            width: 100px !important;
-            height: 100px !important;
+            width: 88px !important;
+            height: 88px !important;
         }
 
         .shop-product-image img {
-            max-width: 100px !important;
-            max-height: 100px !important;
+            max-width: 88px !important;
+            max-height: 88px !important;
         }
     }
 </style>
@@ -391,20 +420,19 @@
     private bool isProcessing;
     private ShopProduct? pendingProduct;
     private DotNetObjectReference<Shop>? dotNetReference;
+    private IJSObjectReference? module;
 
-    private bool CanBook => !string.IsNullOrWhiteSpace(selectedUserId);
     private IEnumerable<User> ActiveUsers => users.Where(u => u.IsActive).OrderBy(u => u.Name);
     private User? SelectedUser => users.FirstOrDefault(u => u.Id == selectedUserId);
 
     private void SelectUser(User user)
     {
-        selectedUserId = user.Id;
-        message = string.Empty;
-    }
+        if (pendingProduct == null || isProcessing || !user.IsActive)
+        {
+            return;
+        }
 
-    private void ChangeUser()
-    {
-        selectedUserId = string.Empty;
+        selectedUserId = user.Id;
         message = string.Empty;
     }
 
@@ -420,10 +448,17 @@
             try
             {
                 dotNetReference = DotNetObjectReference.Create(this);
-                await JSRuntime.InvokeVoidAsync("shopBarcode.initialize", dotNetReference);
+                module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Shop.razor.js");
+                await module.InvokeVoidAsync("initialize", dotNetReference);
             }
             catch (JSException)
             {
+                if (module is not null)
+                {
+                    await module.DisposeAsync();
+                    module = null;
+                }
+
                 dotNetReference?.Dispose();
                 dotNetReference = null;
             }
@@ -456,22 +491,13 @@
 
     private void RequestPurchase(ShopProduct product)
     {
+        if (isProcessing || pendingProduct != null)
+        {
+            return;
+        }
+
         message = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(selectedUserId))
-        {
-            message = "Bitte zuerst einen Käufer auswählen.";
-            messageSuccess = false;
-            return;
-        }
-
-        if (selectedUserId == product.ReceiverUserId)
-        {
-            message = "Käufer und Empfänger dürfen nicht identisch sein.";
-            messageSuccess = false;
-            return;
-        }
-
+        selectedUserId = string.Empty;
         pendingProduct = product;
     }
 
@@ -480,12 +506,14 @@
         if (!isProcessing)
         {
             pendingProduct = null;
+            selectedUserId = string.Empty;
+            message = string.Empty;
         }
     }
 
     private async Task ConfirmPurchase()
     {
-        if (pendingProduct == null || isProcessing)
+        if (pendingProduct == null || SelectedUser == null || isProcessing)
         {
             return;
         }
@@ -498,19 +526,15 @@
         try
         {
             var buyer = users.FirstOrDefault(u => u.Id == selectedUserId);
-            var booking = new Booking(
-                payerId: product.ReceiverUserId,
-                beneficiaryId: selectedUserId,
-                amount: product.Price,
-                article: $"Shop: {product.Name}",
-                date: DateTime.Now
-            );
+            var booking = await DataService.PurchaseShopProductAsync(product.Id, selectedUserId);
+            products = await DataService.GetShopProductsAsync();
 
-            await DataService.AddBookingAsync(booking);
-
-            message = $"{product.Name} wurde für {buyer?.Name ?? selectedUserId} gebucht.";
+            message = booking == null
+                ? $"{product.Name} wurde für {buyer?.Name ?? selectedUserId} gezählt."
+                : $"{product.Name} wurde für {buyer?.Name ?? selectedUserId} gebucht.";
             messageSuccess = true;
             pendingProduct = null;
+            selectedUserId = string.Empty;
         }
         catch (Exception ex)
         {
@@ -542,6 +566,7 @@
         if (pendingProduct == null)
         {
             RequestPurchase(product);
+            StateHasChanged();
         }
 
         return Task.CompletedTask;
@@ -563,7 +588,11 @@
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("shopBarcode.dispose");
+            if (module is not null)
+            {
+                await module.InvokeVoidAsync("dispose");
+                await module.DisposeAsync();
+            }
         }
         catch (JSDisconnectedException)
         {

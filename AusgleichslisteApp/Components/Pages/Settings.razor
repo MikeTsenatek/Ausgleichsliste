@@ -228,7 +228,7 @@
                 <div class="card-body">
                     <EditForm Model="newProduct" OnValidSubmit="SaveShopProduct">
                         <div class="row g-3 align-items-end">
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <label class="form-label">Produktname</label>
                                 <InputText @bind-Value="newProduct.Name"
                                            class="form-control"
@@ -246,6 +246,11 @@
                                              class="form-control"
                                              min="0.01"
                                              step="0.01" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Bestand</label>
+                                <InputNumber @bind-Value="newProduct.StockQuantity"
+                                             class="form-control" />
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Empfänger</label>
@@ -316,6 +321,7 @@
                                     <th>Produkt</th>
                                     <th>Barcode</th>
                                     <th>Preis</th>
+                                    <th>Bestand</th>
                                     <th>Empfänger</th>
                                     <th></th>
                                 </tr>
@@ -348,6 +354,11 @@
                                                 }
                                             </td>
                                             <td>@product.Price.ToString("F2") €</td>
+                                            <td>
+                                                <span class="badge @(product.StockQuantity > 0 ? "bg-success" : "bg-danger")">
+                                                    @product.StockQuantity
+                                                </span>
+                                            </td>
                                             <td>@(product.ReceiverUser?.Name ?? product.ReceiverUserId)</td>
                                             <td class="text-end">
                                                 <button type="button"
@@ -369,7 +380,7 @@
                                 else
                                 {
                                     <tr>
-                                        <td colspan="5" class="text-center text-muted py-4">Noch keine Shop-Produkte vorhanden.</td>
+                                        <td colspan="6" class="text-center text-muted py-4">Noch keine Shop-Produkte vorhanden.</td>
                                     </tr>
                                 }
                             </tbody>
@@ -595,6 +606,7 @@
             Name = product.Name,
             Barcode = product.Barcode ?? string.Empty,
             Price = product.Price,
+            StockQuantity = product.StockQuantity,
             ReceiverUserId = product.ReceiverUserId
         };
         productImageData = product.ImageData;
@@ -635,7 +647,7 @@
 
         if (!newProduct.IsValid())
         {
-            productMessage = "Bitte Produktname, Preis und Empfänger korrekt ausfüllen.";
+            productMessage = "Bitte Produktname, Preis, Bestand und Empfänger korrekt ausfüllen.";
             return;
         }
 
@@ -652,6 +664,7 @@
                 product.Name = newProduct.Name;
                 product.Barcode = newProduct.Barcode;
                 product.Price = newProduct.Price;
+                product.StockQuantity = newProduct.StockQuantity;
                 product.ReceiverUserId = newProduct.ReceiverUserId;
                 product.ImageData = productImageData;
                 product.ImageContentType = productImageContentType;
@@ -667,6 +680,7 @@
                     Name = newProduct.Name,
                     Barcode = newProduct.Barcode,
                     Price = newProduct.Price,
+                    StockQuantity = newProduct.StockQuantity,
                     ReceiverUserId = newProduct.ReceiverUserId,
                     ImageData = productImageData,
                     ImageContentType = productImageContentType,

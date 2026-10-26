@@ -634,6 +634,58 @@ namespace AusgleichslisteApp.Services
             }
         }
 
+        public async Task<Booking?> PurchaseShopProductAsync(Guid productId, string buyerUserId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(buyerUserId))
+                {
+                    throw new InvalidOperationException("Bitte zuerst einen Käufer auswählen.");
+                }
+
+                var product = await _context.ShopProducts
+                    .FirstOrDefaultAsync(p => p.Id == productId && p.IsActive);
+
+                if (product == null)
+                {
+                    throw new InvalidOperationException("Das Produkt ist nicht verfügbar.");
+                }
+
+                product.StockQuantity--;
+
+                Booking? booking = null;
+                if (product.ReceiverUserId != buyerUserId)
+                {
+                    booking = new Booking(
+                        payerId: product.ReceiverUserId,
+                        beneficiaryId: buyerUserId,
+                        amount: product.Price,
+                        article: $"Shop: {product.Name}",
+                        date: DateTime.Now
+                    );
+
+                    _context.Bookings.Add(booking);
+                }
+
+                _context.ShopProducts.Update(product);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Shop-Produkt gekauft: {ProductName} von {BuyerUserId}, Buchung erstellt: {BookingCreated}, Restbestand: {StockQuantity}",
+                    product.Name,
+                    buyerUserId,
+                    booking != null,
+                    product.StockQuantity);
+
+                return booking;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Fehler beim Kaufen des Shop-Produkts mit ID: {ProductId}", productId);
+                throw;
+            }
+        }
+
         public async Task DeleteShopProductAsync(Guid id)
         {
             try

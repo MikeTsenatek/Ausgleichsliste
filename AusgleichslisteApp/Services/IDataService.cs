@@ -33,5 +33,6 @@ namespace AusgleichslisteApp.Services
         Task AddShopProductAsync(ShopProduct product);
         Task UpdateShopProductAsync(ShopProduct product);
         Task DeleteShopProductAsync(Guid id);
+        Task<Booking?> PurchaseShopProductAsync(Guid productId, string buyerUserId);
     }
 }

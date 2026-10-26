@@ -84,7 +84,7 @@
             <!-- Vorgeschlagene Ausgleichszahlungen -->
             <div class="col-lg-6 mb-4">
                 <div class="card shadow-sm">
-                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <div class="card-header bg-primary text-white d-flex flex-wrap gap-2 justify-content-between align-items-center">
                         <h5 class="mb-0">
                             Empfohlene Ausgleichszahlungen
                         </h5>
@@ -101,9 +101,9 @@
                         {
                             @foreach (var settlement in settlements)
                             {
-                                <div class="row mb-3 align-items-center border rounded p-2">
+                                <div class="row mb-3 align-items-center border rounded p-2 settlement-row">
                                     <div class="col-8">
-                                        <div class="d-flex align-items-center">
+                                        <div class="d-flex align-items-center settlement-parties">
                                             <strong>@settlement.Payer?.Name</strong> 
                                             <span class="text-muted mx-2">→</span>
                                             <strong>@settlement.Recipient?.Name</strong>
@@ -129,7 +129,7 @@
                                         }
                                     </div>
                                     <div class="col-4 text-end">
-                                        <div class="d-flex gap-1 justify-content-end align-items-center">
+                                        <div class="d-flex gap-1 justify-content-end align-items-center settlement-actions">
                                             <button class="btn btn-primary btn-sm" 
                                                     @onclick="() => ConfirmApplySingleSettlement(settlement)" 
                                                     disabled="@isProcessing">

@@ -61,7 +61,7 @@
 
 .nav-link {
     display: block;
-    padding: 0.75rem 1.5rem;
+    padding: 0.75rem 1rem;
     color: rgba(255, 255, 255, 0.9);
     text-decoration: none;
     border-radius: 0.5rem;
@@ -148,13 +148,17 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 1199.98px) {
     .main-nav {
         display: none;
     }
     
     .mobile-toggle {
         display: flex;
+    }
+
+    .nav-user {
+        display: none;
     }
     
     .header-content {

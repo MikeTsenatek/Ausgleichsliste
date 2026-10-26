@@ -221,6 +221,9 @@ namespace AusgleichslisteApp.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("StockQuantity")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ReceiverUserId")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -233,6 +236,8 @@ namespace AusgleichslisteApp.Migrations
                     b.HasIndex("IsActive");
 
                     b.HasIndex("Name");
+
+                    b.HasIndex("StockQuantity");
 
                     b.HasIndex("ReceiverUserId");
 
